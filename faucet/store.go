@@ -16,6 +16,7 @@ type Limit struct {
 }
 
 type Config struct {
+	InitialSupply   uint64 `toml:"initial_supply"`
 	Amount          uint64 `toml:"amount"`
 	PerAccountLimit Limit  `toml:"per_account_limit"`
 	GlobalLimit     Limit  `toml:"global_limit"`
@@ -25,22 +26,23 @@ type Config struct {
 
 func DefaultConfig() *Config {
 	return &Config{
-		Amount: 10_000_000, // 10 TIA
+		InitialSupply: 1_000_000_000_000, // 1 million TIA
+		Amount:        10_000_000,        // 10 TIA
 		PerAccountLimit: Limit{
 			Amount: 10_000_000, // 10 TIA
 			Window: time.Hour,
 		},
-		APIAddress: "http://localhost:1095",
+		APIAddress: "localhost:1095",
 	}
 }
 
 type Store struct {
 	db     *badger.DB
-	config Config
+	config *Config
 }
 
-func NewStore(dbPath string, config Config) (*Store, error) {
-	opts := badger.DefaultOptions(dbPath)
+func NewStore(dbPath string, config *Config) (*Store, error) {
+	opts := badger.DefaultOptions(dbPath).WithLoggingLevel(badger.ERROR)
 	db, err := badger.Open(opts)
 	if err != nil {
 		return nil, err

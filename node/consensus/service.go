@@ -2,56 +2,163 @@ package consensus
 
 import (
 	"context"
+	"path/filepath"
+	"time"
 
-	"github.com/celestiaorg/celestia-app/test/util/genesis"
+	"github.com/celestiaorg/celestia-app/app"
+	"github.com/celestiaorg/celestia-app/app/encoding"
+	"github.com/celestiaorg/celestia-app/pkg/appconsts"
 	"github.com/celestiaorg/celestia-app/test/util/testnode"
 	"github.com/cmwaters/apollo"
+	"github.com/cmwaters/apollo/genesis"
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/tendermint/tendermint/config"
+	tmos "github.com/tendermint/tendermint/libs/os"
+	"github.com/tendermint/tendermint/privval"
+	"github.com/tendermint/tendermint/types"
 )
 
 const (
-	ConsensusNodeLabel = "consensus-node"
-	RPCEndpointLabel   = "comet-rpc"
-	GRPCEndpointLabel  = "cosmos-sdk-grpc"
-	APIEndpointLabel   = "cosmos-sdk-api"
+	ConsensusServiceName = "consensus-node"
+	RPCEndpointLabel     = "comet-rpc"
+	GRPCEndpointLabel    = "cosmos-sdk-grpc"
+	APIEndpointLabel     = "cosmos-sdk-api"
 )
+
+type Config = testnode.Config
 
 var _ apollo.Service = &Service{}
 
+var (
+	cdc = encoding.MakeConfig(app.ModuleEncodingRegisters...)
+)
+
 type Service struct {
-	config  *testnode.Config
+	testnode.Context
+	config  *Config
+	dir     string
+	chainID string
 	closers []func() error
 }
 
-func New(config *testnode.Config) *Service {
+func New(config *Config) *Service {
 	return &Service{
 		config: config,
 	}
 }
 
 func (s *Service) Name() string {
-	return ConsensusNodeLabel
+	return ConsensusServiceName
 }
 
 func (s *Service) EndpointsNeeded() []string {
 	return []string{}
 }
 
-func (s *Service) Endpoints() []string {
+func (s *Service) EndpointsProvided() []string {
 	return []string{RPCEndpointLabel, GRPCEndpointLabel, APIEndpointLabel}
 }
 
-func (s *Service) Start(ctx context.Context, dir string, inputs apollo.Endpoints) (apollo.Endpoints, error) {
-	baseDir, err := genesis.InitFiles(dir, s.config.TmConfig, s.config.Genesis, 0)
+func (s *Service) Setup(ctx context.Context, dir string, pendingGenesis *types.GenesisDoc) (genesis.Modifier, error) {
+	kr, err := keyring.New(app.Name, keyring.BackendTest, dir, nil, cdc.Codec)
 	if err != nil {
 		return nil, err
 	}
 
-	tmNode, app, err := testnode.NewCometNode(baseDir, &s.config.UniversalTestingConfig)
+	records, err := kr.List()
+	if err != nil {
+		return nil, err
+	}
+	var pubKey cryptotypes.PubKey
+	if len(records) == 0 {
+		// create the keys if they don't yet exist
+		path := hd.CreateHDPath(sdk.CoinType, 0, 0).String()
+		record, _, err := kr.NewMnemonic(ConsensusServiceName, keyring.English, keyring.DefaultBIP39Passphrase, path, hd.Secp256k1)
+		if err != nil {
+			return nil, err
+		}
+		pubKey, err = record.GetPubKey()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		record, err := kr.Key(ConsensusServiceName)
+		if err != nil {
+			return nil, err
+		}
+		pubKey, err = record.GetPubKey()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	s.config.TmConfig.SetRoot(dir)
+
+	pvStateFile := s.config.TmConfig.PrivValidatorStateFile()
+	if err := tmos.EnsureDir(filepath.Dir(pvStateFile), 0o777); err != nil {
+		return nil, err
+	}
+	pvKeyFile := s.config.TmConfig.PrivValidatorKeyFile()
+	if err := tmos.EnsureDir(filepath.Dir(pvKeyFile), 0o777); err != nil {
+		return nil, err
+	}
+
+	filePV := privval.LoadOrGenFilePV(pvKeyFile, pvStateFile)
+	filePV.Save()
+
+	val := genesis.NewDefaultValidator(ConsensusServiceName)
+	val.ConsensusKey = filePV.Key.PrivKey
+	genTx, err := val.GenTx(cdc, kr, pendingGenesis.ChainID)
 	if err != nil {
 		return nil, err
 	}
 
-	nodeCtx := testnode.NewContext(ctx, s.config.Genesis.Keyring(), s.config.TmConfig, s.config.Genesis.ChainID, s.config.AppConfig.API.Address)
+	genTxBytes, err := cdc.TxConfig.TxJSONEncoder()(genTx)
+	if err != nil {
+		return nil, err
+	}
+
+	configFilePath := filepath.Join(dir, "config", "config.toml")
+	config.WriteConfigFile(configFilePath, s.config.TmConfig)
+
+	appConfigFilePath := filepath.Join(dir, "config", "app.toml")
+	serverconfig.WriteConfigFile(appConfigFilePath, s.config.AppConfig)
+
+	genModifier := AddValidator(
+		pubKey,
+		sdk.NewCoins(sdk.NewInt64Coin(appconsts.BondDenom, val.InitialTokens)),
+		genTxBytes,
+	)
+
+	s.dir = dir
+	return genModifier, nil
+}
+
+func (s *Service) Init(ctx context.Context, genesis *types.GenesisDoc) error {
+	if err := genesis.SaveAs(s.config.TmConfig.GenesisFile()); err != nil {
+		return err
+	}
+	s.chainID = genesis.ChainID
+	return nil
+}
+
+func (s *Service) Start(ctx context.Context, inputs apollo.Endpoints) (apollo.Endpoints, error) {
+	tmNode, app, err := NewCometNode(s.dir, s.config)
+	if err != nil {
+		return nil, err
+	}
+	cdc := apollo.Codec()
+
+	kr, err := keyring.New(ConsensusServiceName, keyring.BackendTest, s.dir, nil, cdc.Codec)
+	if err != nil {
+		return nil, err
+	}
+
+	nodeCtx := testnode.NewContext(ctx, kr, s.config.TmConfig, s.chainID)
 
 	nodeCtx, stopNode, err := testnode.StartNode(tmNode, nodeCtx)
 	if err != nil {
@@ -63,8 +170,13 @@ func (s *Service) Start(ctx context.Context, dir string, inputs apollo.Endpoints
 		return nil, err
 	}
 
-	apiServer, err := testnode.StartAPIServer(app, *s.config.AppConfig, nodeCtx)
+	apiServer, err := StartAPIServer(app, *s.config.AppConfig, nodeCtx)
 	if err != nil {
+		return nil, err
+	}
+	s.Context = nodeCtx
+
+	if _, err := nodeCtx.WaitForHeightWithTimeout(1, time.Minute); err != nil {
 		return nil, err
 	}
 
