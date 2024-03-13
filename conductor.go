@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/celestiaorg/celestia-node/nodebuilder/p2p"
 	"github.com/cmwaters/apollo/genesis"
 )
 
@@ -47,7 +48,7 @@ func New(dir string, genesis *genesis.Genesis, services ...Service) (*Conductor,
 		activeEndpoints: make(map[string]string),
 		activeServices:  make(map[string]Service),
 		startOrder:      make([]string, 0),
-		genesis:         genesis,
+		genesis:         genesis.WithChainID(string(p2p.Private)),
 		rootDir:         dir,
 		logger:          log.New(os.Stdout, "", log.LstdFlags),
 	}
@@ -271,6 +272,8 @@ func (m *Conductor) Serve(ctx context.Context) error {
 	if !m.setup {
 		return fmt.Errorf("Conductor has not setup the services. Call `Setup` first")
 	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
@@ -331,20 +334,24 @@ func (m *Conductor) Serve(ctx context.Context) error {
 		w.WriteHeader(http.StatusOK)
 	})
 
+	// serve front end as a static directory
+	fs := http.FileServer(http.Dir("web"))
+	mux.Handle("/", fs)
+
 	server := &http.Server{
 		Addr:    "0.0.0.0:8080",
 		Handler: mux,
 	}
-
-	m.logger.Printf("starting service control panel on %s", server.Addr)
 
 	go func() {
 		<-ctx.Done()
 		if err := server.Shutdown(context.Background()); err != nil {
 			m.logger.Printf("failed to shutdown server: %s", err.Error())
 		}
+		m.logger.Printf("control panel server shutdown successfully")
 	}()
 
+	m.logger.Printf("starting service control panel on %s", server.Addr)
 	return server.ListenAndServe()
 }
 

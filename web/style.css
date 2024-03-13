@@ -1,0 +1,75 @@
+body {
+    background-color: #1e1e27;
+    font-family: 'Roboto', sans-serif;
+    color: white;
+}
+
+h3 {
+    color: #9592a1;
+    font-weight: 300;
+    font-size: 16px;
+}
+
+.panel {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 400px;
+    text-align: center;
+}
+
+table {
+    text-align: left;
+    font-size: 12px;
+}
+
+a {
+    text-decoration: none;
+    color: rgb(143, 164, 227);
+    border: 1px solid rgb(143, 164, 227);
+    border-radius: 5px;
+    padding: 5px;
+    font-size: 14px;
+}
+
+.card {
+    border-radius: 5px;
+    padding: 10px; 
+    margin-top: 10px;
+    margin-bottom: 10px;
+    text-align: left;
+}
+
+.title {
+    padding-bottom: 10px;
+}
+
+.subtitle {
+    font-size: 11px;
+    padding-bottom: 10px;
+}
+
+.control-buttons {
+    position: absolute;
+    right: 10px;
+}
+
+button {
+    margin: 0px 5px 0px 5px;
+    background-color: transparent;
+    cursor: pointer;
+    border-radius: 3px;
+    padding: 2px 10px;
+}
+
+.start-button {
+    border: 1px solid rgb(46, 97, 237);
+    color: rgb(46, 97, 237);
+}
+
+.stop-button {
+    border: 1px solid rgb(209, 46, 46);
+    color: rgb(209, 46, 46);
+}
+

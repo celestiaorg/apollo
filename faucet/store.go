@@ -33,6 +33,7 @@ func DefaultConfig() *Config {
 			Window: time.Hour,
 		},
 		APIAddress: "localhost:1095",
+		GUIAddress: "localhost:1096",
 	}
 }
 

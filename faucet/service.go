@@ -43,7 +43,8 @@ const (
 
 type Service struct {
 	config  *Config
-	server  http.Server
+	apiServer  http.Server
+	guiServer http.Server
 	store   *Store
 	keyring keyring.Keyring
 }
@@ -178,25 +179,39 @@ func (s *Service) Start(ctx context.Context, input apollo.Endpoints) (apollo.End
 	if err != nil {
 		return nil, err
 	}
-	s.server = http.Server{Handler: handler}
-	errCh := make(chan error)
+	s.apiServer = http.Server{Handler: handler}
+	errCh := make(chan error, 2)
 	go func() {
-		errCh <- s.server.Serve(listener)
+		errCh <- s.apiServer.Serve(listener)
+	}()
+
+	guiListener, err := net.Listen("tcp", s.config.GUIAddress)
+	if err != nil {
+		return nil, err
+	}
+	fileServer := http.FileServer(http.Dir("web"))
+	s.guiServer = http.Server{Handler: fileServer}
+	go func() {
+		errCh <- s.guiServer.Serve(guiListener)
 	}()
 
 	select {
 	case err := <-errCh:
 		return nil, err
-	case <-time.After(5 * time.Second):
+	case <-time.After(2 * time.Second):
 	}
 
 	return apollo.Endpoints{
 		FaucetAPILabel: s.config.APIAddress,
+		FaucetGUILabel: s.config.GUIAddress,
 	}, nil
 }
 
 func (s *Service) Stop(ctx context.Context) error {
-	return s.server.Shutdown(ctx)
+	if err := s.guiServer.Shutdown(ctx); err != nil {
+		return err
+	}
+	return s.apiServer.Shutdown(ctx)
 }
 
 type State struct {

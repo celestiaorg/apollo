@@ -10,9 +10,12 @@ import (
 
 	"github.com/celestiaorg/celestia-app/app"
 	"github.com/celestiaorg/celestia-app/test/util/testnode"
+	"github.com/celestiaorg/celestia-node/nodebuilder"
+	"github.com/celestiaorg/celestia-node/nodebuilder/node"
 	"github.com/cmwaters/apollo"
 	"github.com/cmwaters/apollo/faucet"
 	"github.com/cmwaters/apollo/genesis"
+	"github.com/cmwaters/apollo/node/bridge"
 	"github.com/cmwaters/apollo/node/consensus"
 )
 
@@ -46,5 +49,9 @@ func Run(ctx context.Context) error {
 		WithTendermintConfig(app.DefaultConsensusConfig()).
 		WithAppConfig(app.DefaultAppConfig())
 
-	return apollo.Run(ctx, dir, genesis.NewDefaultGenesis(), consensus.New(cfg), faucet.New(faucet.DefaultConfig()))
+	return apollo.Run(ctx, dir, genesis.NewDefaultGenesis(),
+		consensus.New(cfg),
+		faucet.New(faucet.DefaultConfig()),
+		bridge.New(nodebuilder.DefaultConfig(node.Bridge)),
+	)
 }

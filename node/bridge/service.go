@@ -15,6 +15,7 @@ import (
 	"github.com/cmwaters/apollo/genesis"
 	"github.com/cmwaters/apollo/node/consensus"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	rpcclient "github.com/tendermint/tendermint/rpc/client/http"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -29,10 +30,10 @@ type Service struct {
 	node    *nodebuilder.Node
 	chainID string
 	dir     string
-	config  nodebuilder.Config
+	config  *nodebuilder.Config
 }
 
-func New(config nodebuilder.Config) *Service {
+func New(config *nodebuilder.Config) *Service {
 	return &Service{
 		config: config,
 	}
@@ -52,7 +53,7 @@ func (s *Service) EndpointsProvided() []string {
 
 func (s *Service) Setup(ctx context.Context, dir string, pendingGenesis *types.GenesisDoc) (genesis.Modifier, error) {
 	s.dir = dir
-	return nil, nodebuilder.Init(s.config, dir, node.Bridge)
+	return nil, nodebuilder.Init(*s.config, dir, node.Bridge)
 }
 
 func (s *Service) Init(ctx context.Context, genesis *types.GenesisDoc) error {
@@ -61,6 +62,24 @@ func (s *Service) Init(ctx context.Context, genesis *types.GenesisDoc) error {
 }
 
 func (s *Service) Start(ctx context.Context, inputs apollo.Endpoints) (apollo.Endpoints, error) {
+	rpcEndpoint, ok := inputs[consensus.RPCEndpointLabel]
+	if !ok {
+		return nil, fmt.Errorf("RPC endpoint not provided")
+	}
+
+	client, err := rpcclient.New(rpcEndpoint, "/websocket")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create RPC client: %w", err)
+	}
+	firstHeight := int64(1)
+	header, err := client.Header(context.Background(), &firstHeight)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query header at height 1: %w", err)
+	}
+
+	headerHash := header.Header.Hash().String()
+	s.config.Header.TrustedHash = headerHash
+
 	encConf := encoding.MakeConfig(app.ModuleEncodingRegisters...)
 
 	keysPath := filepath.Join(s.dir, "keys")
@@ -74,13 +93,13 @@ func (s *Service) Start(ctx context.Context, inputs apollo.Endpoints) (apollo.En
 		return nil, err
 	}
 
-	s.node, err = nodebuilder.New(node.Bridge, p2p.Network(s.chainID), store)
+	s.node, err = nodebuilder.NewWithConfig(node.Bridge, p2p.Network(s.chainID), store, s.config)
 	if err != nil {
 		return nil, err
 	}
 
 	endpoints := map[string]string{
-		RPCEndpointLabel: fmt.Sprintf("http://localhost:%d", s.config.RPC.Port),
+		RPCEndpointLabel: fmt.Sprintf("http://localhost:%s", s.config.RPC.Port),
 	}
 
 	return endpoints, s.node.Start(ctx)
