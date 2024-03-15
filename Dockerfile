@@ -1,22 +1,58 @@
-FROM golang:1.22 AS builder
+# This Dockerfile performs a multi-stage build. BUILDER_IMAGE is the image used
+# to compile the celestia-appd binary. RUNTIME_IMAGE is the image that will be
+# returned with the final celestia-appd binary.
+#
+# Separating the builder and runtime image allows the runtime image to be
+# considerably smaller because it doesn't need to have Golang installed.
+ARG BUILDER_IMAGE=docker.io/golang:1.22.1-alpine3.18
+ARG RUNTIME_IMAGE=docker.io/alpine:3.19.1
+ARG TARGETOS
+ARG TARGETARCH
 
-WORKDIR /app
+# Stage 1: Build the celestia-appd binary inside a builder image that will be discarded later.
+# Ignore hadolint rule because hadolint can't parse the variable.
+# See https://github.com/hadolint/hadolint/issues/339
+# hadolint ignore=DL3006
+FROM --platform=$BUILDPLATFORM ${BUILDER_IMAGE} AS builder
+ENV CGO_ENABLED=0
+ENV GO111MODULE=on
+# hadolint ignore=DL3018
+RUN apk update && apk add --no-cache \
+    gcc \
+    git \
+    # linux-headers are needed for Ledger support
+    linux-headers \
+    make \
+    musl-dev
+COPY . /apollo
+WORKDIR /apollo
+RUN uname -a &&\
+    CGO_ENABLED=${CGO_ENABLED} GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go install cmd/apollo.go
 
-# Copy the local package files to the container's workspace.
-COPY . .
+FROM ${RUNTIME_IMAGE} AS runtime
+# Use UID 10,001 because UIDs below 10,000 are a security risk.
+# Ref: https://github.com/hexops/dockerfile/blob/main/README.md#do-not-use-a-uid-below-10000
+ARG UID=10001
+ARG USER_NAME=apollo
+ENV APOLLO_HOME=/home/${USER_NAME}
+# hadolint ignore=DL3018
+RUN apk update && apk add --no-cache \
+    bash \
+    curl \
+    jq \
+    && adduser ${USER_NAME} \
+    -D \
+    -g ${USER_NAME} \
+    -h ${APOLLO_HOME} \
+    -s /sbin/nologin \
+    -u ${UID}
 
-# Build the apollo command inside the container.
-# (Assuming that the main package is located in the "cmd/apollo.go" directory)
-RUN go build -o /apollo cmd/apollo.go
+COPY --from=builder /apollo/apollo /bin/apollo
 
-# Use a Docker multi-stage build to create a lean production image.
-FROM debian:buster-slim
+# Set the user
+USER ${USER_NAME}
 
-# Copy the binary to the production image from the builder stage.
-COPY --from=builder /apollo /apollo
-
-EXPOSE 26657 1317 9090 26658
-
-# Run the apollo command by default when the container starts.
-ENTRYPOINT ["/apollo"]
-
+# Expose ports:
+EXPOSE 1317 9090 26657 1095 8080 26658
+ENTRYPOINT [ "/bin/bash", "apollo" ]

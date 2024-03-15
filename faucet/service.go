@@ -38,15 +38,13 @@ var (
 const (
 	FaucetServiceName = "faucet"
 	FaucetAPILabel    = "faucet-api"
-	FaucetGUILabel    = "faucet-gui"
 )
 
 type Service struct {
-	config  *Config
-	apiServer  http.Server
-	guiServer http.Server
-	store   *Store
-	keyring keyring.Keyring
+	config    *Config
+	apiServer http.Server
+	store     *Store
+	keyring   keyring.Keyring
 }
 
 func New(config *Config) *Service {
@@ -60,11 +58,11 @@ func (s *Service) Name() string {
 }
 
 func (s *Service) EndpointsNeeded() []string {
-	return []string{consensus.RPCEndpointLabel, consensus.GRPCEndpointLabel}
+	return []string{consensus.GRPCEndpointLabel}
 }
 
 func (s *Service) EndpointsProvided() []string {
-	return []string{FaucetAPILabel, FaucetGUILabel}
+	return []string{FaucetAPILabel}
 }
 
 func (s *Service) Setup(ctx context.Context, dir string, pendingGenesis *types.GenesisDoc) (genesis.Modifier, error) {
@@ -118,29 +116,33 @@ func (s *Service) Start(ctx context.Context, input apollo.Endpoints) (apollo.End
 	}
 
 	handler := http.NewServeMux()
-	handler.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	handler.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
-		if len(r.URL.Path) <= 1 {
-			state := State{
-				PerRequestAmount: s.config.Amount,
-				Address:          signer.Address().String(),
-				PerAccountLimit:  s.config.PerAccountLimit,
-				GlobalLimit:      s.config.GlobalLimit,
-			}
+		state := State{
+			PerRequestAmount: s.config.Amount,
+			Address:          signer.Address().String(),
+			PerAccountLimit:  s.config.PerAccountLimit,
+			GlobalLimit:      s.config.GlobalLimit,
+		}
 
-			stateJSON, err := json.Marshal(state)
-			if err != nil {
-				panic(err)
-			}
+		stateJSON, err := json.Marshal(state)
+		if err != nil {
+			panic(err)
+		}
 
-			w.Header().Set("Content-Type", "application/json")
-			if _, err := w.Write(stateJSON); err != nil {
-				log.Printf("error writing state response: %s", err.Error())
-			}
+		w.Header().Set("Content-Type", "application/json")
+		if _, err := w.Write(stateJSON); err != nil {
+			log.Printf("error writing state response: %s", err.Error())
+		}
+	})
+
+	handler.HandleFunc("/fund", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
@@ -175,24 +177,19 @@ func (s *Service) Start(ctx context.Context, input apollo.Endpoints) (apollo.End
 			log.Printf("error writing response: %s", err.Error())
 		}
 	})
+
+	// serve the static directory
+	fileServer := http.FileServer(http.Dir("faucet/web"))
+	handler.Handle("/", fileServer)
+
 	listener, err := net.Listen("tcp", s.config.APIAddress)
 	if err != nil {
 		return nil, err
 	}
 	s.apiServer = http.Server{Handler: handler}
-	errCh := make(chan error, 2)
+	errCh := make(chan error)
 	go func() {
 		errCh <- s.apiServer.Serve(listener)
-	}()
-
-	guiListener, err := net.Listen("tcp", s.config.GUIAddress)
-	if err != nil {
-		return nil, err
-	}
-	fileServer := http.FileServer(http.Dir("web"))
-	s.guiServer = http.Server{Handler: fileServer}
-	go func() {
-		errCh <- s.guiServer.Serve(guiListener)
 	}()
 
 	select {
@@ -203,14 +200,10 @@ func (s *Service) Start(ctx context.Context, input apollo.Endpoints) (apollo.End
 
 	return apollo.Endpoints{
 		FaucetAPILabel: s.config.APIAddress,
-		FaucetGUILabel: s.config.GUIAddress,
 	}, nil
 }
 
 func (s *Service) Stop(ctx context.Context) error {
-	if err := s.guiServer.Shutdown(ctx); err != nil {
-		return err
-	}
 	return s.apiServer.Shutdown(ctx)
 }
 

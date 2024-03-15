@@ -72,7 +72,11 @@ function renderStatusData(data) {
 }
 
 function sanitizeEndpoint(endpoint) {
-    return endpoint.replace('tcp://', 'http://').replace('0.0.0.0', 'localhost').replace('127.0.0.1', 'localhost')
+    var newEndpoint = endpoint.replace('tcp://', '').replace('0.0.0.0', 'localhost').replace('127.0.0.1', 'localhost');
+    if (!newEndpoint.startsWith('http://')) {
+        newEndpoint = 'http://' + newEndpoint;
+    }
+    return newEndpoint
 }
 
 function convertKebabCase(str) {
