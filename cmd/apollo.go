@@ -17,6 +17,7 @@ import (
 	"github.com/cmwaters/apollo/genesis"
 	"github.com/cmwaters/apollo/node/bridge"
 	"github.com/cmwaters/apollo/node/consensus"
+	"github.com/cmwaters/apollo/node/light"
 )
 
 const ApolloDir = ".apollo"
@@ -53,5 +54,6 @@ func Run(ctx context.Context) error {
 		consensus.New(cfg),
 		faucet.New(faucet.DefaultConfig()),
 		bridge.New(nodebuilder.DefaultConfig(node.Bridge)),
+		light.New(nodebuilder.DefaultConfig(node.Light)),
 	)
 }

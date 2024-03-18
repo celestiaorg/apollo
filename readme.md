@@ -8,8 +8,7 @@ To deploy **from source**, clone the repo and install the binary by running:
 
 ```bash
 git clone https://github.com/cmwaters/apollo.git && cd apollo
-go build cmd/apollo.go
-./apollo
+go run cmd/apollo.go
 ```
 
 Go to `http://localhost:8080` to view the control panel. This will show which services are running along with the URLs
