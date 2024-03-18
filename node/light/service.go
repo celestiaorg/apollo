@@ -99,7 +99,7 @@ func (s *Service) Start(ctx context.Context, inputs apollo.Endpoints) (apollo.En
 		return nil, err
 	}
 
-	s.node, err = nodebuilder.New(node.Light, p2p.Network(s.chainID), s.store)
+	s.node, err = nodebuilder.NewWithConfig(node.Light, p2p.Network(s.chainID), s.store, s.config)
 	if err != nil {
 		return nil, err
 	}
