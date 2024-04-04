@@ -2,9 +2,11 @@ package faucet
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/http"
 	"strings"
@@ -29,10 +31,12 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var _ apollo.Service = &Service{}
-
 var (
-	cdc = encoding.MakeConfig(app.ModuleEncodingRegisters...)
+	_   apollo.Service = &Service{}
+	cdc                = encoding.MakeConfig(app.ModuleEncodingRegisters...)
+
+	//go:embed web/*
+	web embed.FS
 )
 
 const (
@@ -179,8 +183,13 @@ func (s *Service) Start(ctx context.Context, input apollo.Endpoints) (apollo.End
 	})
 
 	// serve the static directory
-	fileServer := http.FileServer(http.Dir("faucet/web"))
-	handler.Handle("/", fileServer)
+	if s.config.EnableGUI {
+		fileSystem, err := fs.Sub(web, "web")
+		if err != nil {
+			return nil, err
+		}
+		handler.Handle("/", http.FileServer(http.FS(fileSystem)))
+	}
 
 	listener, err := net.Listen("tcp", s.config.APIAddress)
 	if err != nil {

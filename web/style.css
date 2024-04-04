@@ -24,13 +24,25 @@ table {
     font-size: 12px;
 }
 
-a {
+button {
     text-decoration: none;
     color: rgb(143, 164, 227);
     border: 1px solid rgb(143, 164, 227);
     border-radius: 5px;
     padding: 5px;
     font-size: 14px;
+}
+
+.popup {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: #333;
+    color: #fff;
+    padding: 10px;
+    border-radius: 5px;
+    z-index: 1000;
+    max-width: 600px;
 }
 
 .card {

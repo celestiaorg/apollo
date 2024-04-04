@@ -2,8 +2,10 @@ package apollo
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -14,6 +16,9 @@ import (
 	"github.com/celestiaorg/celestia-node/nodebuilder/p2p"
 	"github.com/cmwaters/apollo/genesis"
 )
+
+//go:embed web/*
+var web embed.FS
 
 type Conductor struct {
 	lock            sync.Mutex
@@ -307,7 +312,7 @@ func (m *Conductor) Serve(ctx context.Context) error {
 		}
 		serviceName := pathParts[2]
 		if err := m.startService(ctx, serviceName); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			m.logger.Printf("failed to start service %s: %s", serviceName, err.Error())
 			return
 		}
@@ -327,7 +332,7 @@ func (m *Conductor) Serve(ctx context.Context) error {
 		}
 		serviceName := pathParts[2]
 		if err := m.stopService(ctx, serviceName); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			m.logger.Printf("failed to stop service %s: %s", serviceName, err.Error())
 			return
 		}
@@ -335,8 +340,11 @@ func (m *Conductor) Serve(ctx context.Context) error {
 	})
 
 	// serve front end as a static directory
-	fs := http.FileServer(http.Dir("web"))
-	mux.Handle("/", fs)
+	fileSystem, err := fs.Sub(web, "web")
+	if err != nil {
+		return err
+	}
+	mux.Handle("/", http.FileServer(http.FS(fileSystem)))
 
 	server := &http.Server{
 		Addr:    "0.0.0.0:8080",

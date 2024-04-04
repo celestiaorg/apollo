@@ -6,7 +6,10 @@ function load() {
     fetch('/status')
     .then(response => response.json())
     .then(data => renderStatusData(data))
-    .catch(error => console.error('Error fetching status:', error));
+    .catch(error => {
+        console.error('Error fetching status:', error);
+        createPopup(`Error fetching status: ${error}`);
+    });
 }
 
 function renderStatusData(data) {
@@ -64,11 +67,27 @@ function renderStatusData(data) {
         }
         const endpointsDiv = document.createElement('div');
         endpointsDiv.innerHTML = Object.entries(info.provides_endpoints).map(([name, endpoint]) => 
-            `<a href="${sanitizeEndpoint(endpoint)}" target="_blank">${name}</a>`).join(' ');
+            `<button onclick="copyEndpointToClipboard('${endpoint}')">${name}</button>`).join(' ');
         cardDiv.appendChild(endpointsDiv);
 
         controlPanel.appendChild(cardDiv);
     }
+}
+
+function copyEndpointToClipboard(endpoint) {
+    navigator.clipboard.writeText(sanitizeEndpoint(endpoint)).then(() => {
+        if (popup != null) {
+            document.body.removeChild(popup);
+        }
+        popup = document.createElement('div');
+        popup.textContent = `${endpoint} copied to clipboard!`;
+        popup.className = 'popup';
+        document.body.appendChild(popup);
+        setTimeout(() => {
+            document.body.removeChild(popup);
+            popup = null;
+        }, 3000);
+    }).catch(err => console.error('Could not copy text: ', err));
 }
 
 function sanitizeEndpoint(endpoint) {
@@ -83,20 +102,51 @@ function convertKebabCase(str) {
     return str.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
 }
 
+var popup
+
 function startService(name) {
     fetch(`/start/${name}`)
     .then(response => {
-        console.log('Sucessfully started ' + name + ': ' + response)
+        if (response.status != 200) {
+            response.text().then(body => {
+                createPopup(`Error starting service ${name}: ${body}`);
+            });
+        } else {
+            console.log('Sucessfully started ' + name)
+        }
         load()
     })
-    .catch(error => console.error('Error starting service:', error));
+    .catch(error => {
+        console.error('Error starting service:', error);
+        createPopup(`Error starting service ${name}: ${error}`);
+    });
 }
 
 function stopService(name) {
     fetch(`/stop/${name}`)
     .then(response => {
-        console.log('Sucessfully stopped ' + name + ': ' + response)
+        if (response.status != 200) {
+            response.text().then(body => {
+                createPopup(`Error stopping service ${name}: ${body}`);
+            });
+        } else {
+            console.log('Sucessfully stopped ' + name)
+        }
         load()
     })
-    .catch(error => console.error('Error stopping service:', error));
+    .catch(error => {
+        console.error('Error stopping service:', error);
+        createPopup(`Error stopping service ${name}: ${error}`);
+    });
 }
+
+function createPopup(text) {
+    if (popup != null) {
+        document.body.removeChild(popup);
+    }
+    popup = document.createElement('div');
+    popup.textContent = text;
+    popup.className = 'popup';
+    document.body.appendChild(popup);
+}
+

@@ -27,7 +27,7 @@ The binary comes with a faucet for easily funding accounts. By default it will b
 
 ## Adding Services
 
-The atomic unit of this development kit is a service. It can be seen as an arbitrary process that requires certain inputs through ports and providing certain outputs also in the form of exposed ports. These services can be started and stopped.
+The atomic unit of this development kit is a service. It can be seen as an arbitrary process that requires certain inputs denoted as endpoints and providing certain outputs also in the form of endpoints. These are predominantly used as the ports these services will communicate across. These services can be started and stopped.
 
 The CLI uses the `Conductor` with four out of the box services. To add more, write a wrapper of your service that matches the `Service` interface. Create your own binary with the standard services and your new service.
 

@@ -21,6 +21,7 @@ type Config struct {
 	PerAccountLimit Limit  `toml:"per_account_limit"`
 	GlobalLimit     Limit  `toml:"global_limit"`
 	APIAddress      string `toml:"api_address"`
+	EnableGUI       bool   `toml:"enable_gui"`
 }
 
 func DefaultConfig() *Config {
@@ -32,6 +33,7 @@ func DefaultConfig() *Config {
 			Window: time.Hour,
 		},
 		APIAddress: "localhost:1095",
+		EnableGUI:  true,
 	}
 }
 
