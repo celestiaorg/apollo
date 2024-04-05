@@ -76,17 +76,7 @@ function renderStatusData(data) {
 
 function copyEndpointToClipboard(endpoint) {
     navigator.clipboard.writeText(sanitizeEndpoint(endpoint)).then(() => {
-        if (popup != null) {
-            document.body.removeChild(popup);
-        }
-        popup = document.createElement('div');
-        popup.textContent = `${endpoint} copied to clipboard!`;
-        popup.className = 'popup';
-        document.body.appendChild(popup);
-        setTimeout(() => {
-            document.body.removeChild(popup);
-            popup = null;
-        }, 3000);
+        createPopup(`${endpoint} copied to clipboard!`);
     }).catch(err => console.error('Could not copy text: ', err));
 }
 
@@ -148,5 +138,9 @@ function createPopup(text) {
     popup.textContent = text;
     popup.className = 'popup';
     document.body.appendChild(popup);
+    setTimeout(() => {
+        document.body.removeChild(popup);
+        popup = null;
+    }, 3000);
 }
 
