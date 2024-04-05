@@ -46,6 +46,8 @@ type Service struct {
 }
 
 func New(config *Config) *Service {
+	// override some config values
+	config.TmConfig.TxIndex.Indexer = "kv"
 	return &Service{
 		config: config,
 	}

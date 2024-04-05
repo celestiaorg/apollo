@@ -116,7 +116,7 @@ func (s *Service) Start(ctx context.Context, input apollo.Endpoints) (apollo.End
 
 	signer, err := user.SetupSingleSigner(ctx, s.keyring, conn, cdc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error setting up signer: %w", err)
 	}
 
 	handler := http.NewServeMux()
@@ -144,17 +144,17 @@ func (s *Service) Start(ctx context.Context, input apollo.Endpoints) (apollo.End
 		}
 	})
 
-	handler.HandleFunc("/fund", func(w http.ResponseWriter, r *http.Request) {
+	handler.HandleFunc("/fund/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
-		addrStr := strings.TrimPrefix("/", r.URL.Path)
+		addrStr := strings.TrimPrefix(r.URL.Path, "/fund/")
 		addr, err := sdk.AccAddressFromBech32(addrStr)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("invalid address: %s", err.Error()), http.StatusBadRequest)
-			log.Printf("invalid address from request: %s", err.Error())
+			http.Error(w, fmt.Sprintf("invalid address %s: %s", addrStr, err.Error()), http.StatusBadRequest)
+			log.Printf("invalid address from request %s: %s", addrStr, err.Error())
 			return
 		}
 
@@ -168,11 +168,11 @@ func (s *Service) Start(ctx context.Context, input apollo.Endpoints) (apollo.End
 		msgSend := bank.NewMsgSend(signer.Address(), addr, sdk.NewCoins(sdk.NewInt64Coin(app.BondDenom, int64(s.config.Amount))))
 
 		// TODO: the gas estimation could be more dynamic but this should be safe enough for all MsgSend transactions
-		resp, err := signer.SubmitTx(r.Context(), []sdk.Msg{msgSend}, user.SetGasLimitAndFee(100000, appconsts.DefaultMinGasPrice))
+		resp, err := signer.SubmitTx(r.Context(), []sdk.Msg{msgSend}, user.SetGasLimitAndFee(200_000, appconsts.DefaultMinGasPrice))
 		// TODO: if this fails we should ideally revert the request funds changes to the database
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			log.Printf("error submitting send tx to account %v: %s", addr, err.Error())
+			log.Printf("error submitting send tx to account %s: %s", addr.String(), err.Error())
 			return
 		}
 		w.WriteHeader(http.StatusOK)

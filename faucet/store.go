@@ -28,12 +28,8 @@ func DefaultConfig() *Config {
 	return &Config{
 		InitialSupply: 1_000_000_000_000, // 1 million TIA
 		Amount:        10_000_000,        // 10 TIA
-		PerAccountLimit: Limit{
-			Amount: 10_000_000, // 10 TIA
-			Window: time.Hour,
-		},
-		APIAddress: "localhost:1095",
-		EnableGUI:  true,
+		APIAddress:    "localhost:1095",
+		EnableGUI:     true,
 	}
 }
 
@@ -82,7 +78,9 @@ func (s *Store) getTimestampsForAddress(address types.AccAddress) ([]time.Time, 
 	var timestamps []time.Time
 	err := s.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(address.Bytes())
-		if err != nil {
+		if err == badger.ErrKeyNotFound {
+			return nil // If the key doesn't exist, return nil to handle outside of this function
+		} else if err != nil {
 			return err
 		}
 		return item.Value(func(val []byte) error {
@@ -100,21 +98,23 @@ func (s *Store) RequestFunds(address types.AccAddress) error {
 
 	// Check if the rate limit has been exceeded
 	now := time.Now()
-	var recentRequests uint64
-	for _, timestamp := range timestamps {
-		if now.Sub(timestamp) <= s.config.PerAccountLimit.Window {
-			recentRequests++
+	if s.config.PerAccountLimit.Window > 0 {
+		var recentRequests uint64
+		for _, timestamp := range timestamps {
+			if now.Sub(timestamp) <= s.config.PerAccountLimit.Window {
+				recentRequests++
+			}
+
+			// Avoid double requests
+			if now.Sub(timestamp) < 10*time.Second {
+				return errors.New("request has come too soon after the previous request")
+			}
 		}
 
-		// Avoid double requests
-		if now.Sub(timestamp) < 10*time.Second {
-			return errors.New("request has come too soon after the previous request")
+		if recentRequests*s.config.Amount >= s.config.PerAccountLimit.Amount {
+			waitTime := s.config.PerAccountLimit.Window - time.Since(timestamps[len(timestamps)-1])
+			return fmt.Errorf("rate limit exceeded, please wait %s to request funds again", waitTime)
 		}
-	}
-
-	if recentRequests*s.config.Amount >= s.config.PerAccountLimit.Amount {
-		waitTime := s.config.PerAccountLimit.Window - time.Since(timestamps[len(timestamps)-1])
-		return fmt.Errorf("rate limit exceeded, please wait %s to request funds again", waitTime)
 	}
 
 	// TODO: the global rate limit is not yet enforced
