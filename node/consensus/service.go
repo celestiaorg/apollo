@@ -40,7 +40,6 @@ var (
 type Service struct {
 	testnode.Context
 	config  *Config
-	dir     string
 	chainID string
 	closers []func() error
 }
@@ -135,8 +134,6 @@ func (s *Service) Setup(ctx context.Context, dir string, pendingGenesis *types.G
 		sdk.NewCoins(sdk.NewInt64Coin(appconsts.BondDenom, val.InitialTokens)),
 		genTxBytes,
 	)
-
-	s.dir = dir
 	return genModifier, nil
 }
 
@@ -148,14 +145,14 @@ func (s *Service) Init(ctx context.Context, genesis *types.GenesisDoc) error {
 	return nil
 }
 
-func (s *Service) Start(ctx context.Context, inputs apollo.Endpoints) (apollo.Endpoints, error) {
-	tmNode, app, err := NewCometNode(s.dir, s.config)
+func (s *Service) Start(ctx context.Context, dir string, inputs apollo.Endpoints) (apollo.Endpoints, error) {
+	tmNode, app, err := NewCometNode(dir, s.config)
 	if err != nil {
 		return nil, err
 	}
 	cdc := apollo.Codec()
 
-	kr, err := keyring.New(ConsensusServiceName, keyring.BackendTest, s.dir, nil, cdc.Codec)
+	kr, err := keyring.New(ConsensusServiceName, keyring.BackendTest, dir, nil, cdc.Codec)
 	if err != nil {
 		return nil, err
 	}

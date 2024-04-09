@@ -21,8 +21,8 @@ function renderStatusData(data) {
         const cardDiv = document.createElement('div');
         cardDiv.className = 'card';
         // Modify card border based on info.IsRunning
-        cardDiv.style.border = info.running ? '1px solid rgb(50, 42, 152)' : '1px solid rgb(152, 48, 48)';
-        cardDiv.style.backgroundColor = info.running? 'transparent' : '#2b2020'
+        cardDiv.style.border = info.running ? '1px solid rgb(50, 42, 152)' : '1px solid rgb(84, 84, 84)';
+        cardDiv.style.color = info.running? 'white' : '#c5c5c5'
 
         // Create a div for control buttons
         const controlButtonsDiv = document.createElement('div');

@@ -8,6 +8,7 @@ import (
 
 	"github.com/celestiaorg/celestia-app/app"
 	"github.com/celestiaorg/celestia-app/app/encoding"
+	"github.com/celestiaorg/celestia-node/libs/utils"
 	"github.com/celestiaorg/celestia-node/nodebuilder"
 	"github.com/celestiaorg/celestia-node/nodebuilder/node"
 	"github.com/celestiaorg/celestia-node/nodebuilder/p2p"
@@ -32,7 +33,6 @@ type Service struct {
 	node    *nodebuilder.Node
 	store   nodebuilder.Store
 	chainID string
-	dir     string
 	config  *nodebuilder.Config
 }
 
@@ -57,7 +57,6 @@ func (s *Service) EndpointsProvided() []string {
 // TODO: We should automatically fund the light client account so that they can
 // start submitting blobs straight away
 func (s *Service) Setup(ctx context.Context, dir string, pendingGenesis *types.GenesisDoc) (genesis.Modifier, error) {
-	s.dir = dir
 	return nil, nodebuilder.Init(*s.config, dir, node.Light)
 }
 
@@ -66,7 +65,7 @@ func (s *Service) Init(ctx context.Context, genesis *types.GenesisDoc) error {
 	return nil
 }
 
-func (s *Service) Start(ctx context.Context, inputs apollo.Endpoints) (apollo.Endpoints, error) {
+func (s *Service) Start(ctx context.Context, dir string, inputs apollo.Endpoints) (apollo.Endpoints, error) {
 	headerHash, err := util.GetTrustedHash(ctx, inputs[consensus.RPCEndpointLabel])
 	if err != nil {
 		return nil, err
@@ -85,16 +84,33 @@ func (s *Service) Start(ctx context.Context, inputs apollo.Endpoints) (apollo.En
 
 	// set the trusted peers
 	s.config.Header.TrustedPeers = []string{bridgeAddrs[0].String()}
+	consensusIP, err := utils.ValidateAddr(inputs[consensus.RPCEndpointLabel])
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse consensus RPC endpoint: %w", err)
+	}
+	s.config.Core.IP = consensusIP
+
+	rpcPort, err := util.ParsePort(inputs[consensus.RPCEndpointLabel])
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse consensus RPC endpoint: %w", err)
+	}
+	s.config.Core.RPCPort = rpcPort
+
+	grpcPort, err := util.ParsePort(inputs[consensus.GRPCEndpointLabel])
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse consensus GRPC endpoint: %w", err)
+	}
+	s.config.Core.GRPCPort = grpcPort
 
 	encConf := encoding.MakeConfig(app.ModuleEncodingRegisters...)
 
-	keysPath := filepath.Join(s.dir, "keys")
+	keysPath := filepath.Join(dir, "keys")
 	ring, err := keyring.New(app.Name, s.config.State.KeyringBackend, keysPath, os.Stdin, encConf.Codec)
 	if err != nil {
 		return nil, err
 	}
 
-	s.store, err = nodebuilder.OpenStore(s.dir, ring)
+	s.store, err = nodebuilder.OpenStore(dir, ring)
 	if err != nil {
 		return nil, err
 	}

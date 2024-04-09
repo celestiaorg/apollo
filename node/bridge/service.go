@@ -34,7 +34,6 @@ type Service struct {
 	node    *nodebuilder.Node
 	store   nodebuilder.Store
 	chainID string
-	dir     string
 	config  *nodebuilder.Config
 }
 
@@ -57,7 +56,6 @@ func (s *Service) EndpointsProvided() []string {
 }
 
 func (s *Service) Setup(ctx context.Context, dir string, pendingGenesis *types.GenesisDoc) (genesis.Modifier, error) {
-	s.dir = dir
 	return nil, nodebuilder.Init(*s.config, dir, node.Bridge)
 }
 
@@ -66,7 +64,7 @@ func (s *Service) Init(ctx context.Context, genesis *types.GenesisDoc) error {
 	return nil
 }
 
-func (s *Service) Start(ctx context.Context, inputs apollo.Endpoints) (apollo.Endpoints, error) {
+func (s *Service) Start(ctx context.Context, dir string, inputs apollo.Endpoints) (apollo.Endpoints, error) {
 	rpcEndpoint, ok := inputs[consensus.RPCEndpointLabel]
 	if !ok {
 		return nil, fmt.Errorf("RPC endpoint not provided")
@@ -84,13 +82,13 @@ func (s *Service) Start(ctx context.Context, inputs apollo.Endpoints) (apollo.En
 
 	encConf := encoding.MakeConfig(app.ModuleEncodingRegisters...)
 
-	keysPath := filepath.Join(s.dir, "keys")
+	keysPath := filepath.Join(dir, "keys")
 	ring, err := keyring.New(app.Name, s.config.State.KeyringBackend, keysPath, os.Stdin, encConf.Codec)
 	if err != nil {
 		return nil, err
 	}
 
-	s.store, err = nodebuilder.OpenStore(s.dir, ring)
+	s.store, err = nodebuilder.OpenStore(dir, ring)
 	if err != nil {
 		return nil, err
 	}

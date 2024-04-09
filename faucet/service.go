@@ -90,6 +90,7 @@ func (s *Service) Setup(ctx context.Context, dir string, pendingGenesis *types.G
 			if err != nil {
 				return nil, err
 			}
+			fmt.Println("created new account")
 		} else {
 			return nil, err
 		}
@@ -108,7 +109,7 @@ func (s *Service) Init(ctx context.Context, genesis *types.GenesisDoc) error {
 	return nil
 }
 
-func (s *Service) Start(ctx context.Context, input apollo.Endpoints) (apollo.Endpoints, error) {
+func (s *Service) Start(ctx context.Context, _ string, input apollo.Endpoints) (apollo.Endpoints, error) {
 	conn, err := grpc.Dial(input[consensus.GRPCEndpointLabel], grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err

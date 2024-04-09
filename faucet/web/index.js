@@ -24,7 +24,7 @@ function createPopup(text) {
     document.body.appendChild(popup);
     setTimeout(() => {
         document.body.removeChild(popup);
-    }, 3000);
+    }, 4000);
 }
 
 function disableButton() {

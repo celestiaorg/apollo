@@ -88,6 +88,11 @@ func (m *Conductor) Setup(ctx context.Context) error {
 	defer m.lock.Unlock()
 	m.logger.Printf("setting up services...")
 
+	dir := filepath.Join(m.rootDir, "apollo")
+	if _, err := os.Stat(dir); os.IsExist(err) {
+		return fmt.Errorf("directory %s already exists", dir)
+	}
+
 	pendingGenesis, err := m.genesis.Export()
 	if err != nil {
 		return err
@@ -143,7 +148,8 @@ func (m *Conductor) startService(ctx context.Context, name string) error {
 		}
 	}
 
-	activeEndpoints, err := service.Start(ctx, m.activeEndpoints)
+	dir := filepath.Join(m.rootDir, name)
+	activeEndpoints, err := service.Start(ctx, dir, m.activeEndpoints)
 	if err != nil {
 		return fmt.Errorf("failed to start service %s: %w", name, err)
 	}

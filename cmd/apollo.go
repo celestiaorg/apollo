@@ -46,14 +46,17 @@ func Run(ctx context.Context) error {
 	}
 	dir := filepath.Join(homeDir, ApolloDir)
 
-	cfg := testnode.DefaultConfig().
+	consensusCfg := testnode.DefaultConfig().
 		WithTendermintConfig(app.DefaultConsensusConfig()).
 		WithAppConfig(app.DefaultAppConfig())
 
+	lightCfg := nodebuilder.DefaultConfig(node.Light)
+	lightCfg.RPC.SkipAuth = true
+
 	return apollo.Run(ctx, dir, genesis.NewDefaultGenesis(),
-		consensus.New(cfg),
+		consensus.New(consensusCfg),
 		faucet.New(faucet.DefaultConfig()),
 		bridge.New(nodebuilder.DefaultConfig(node.Bridge)),
-		light.New(nodebuilder.DefaultConfig(node.Light)),
+		light.New(lightCfg),
 	)
 }
