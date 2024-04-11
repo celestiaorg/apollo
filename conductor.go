@@ -15,6 +15,7 @@ import (
 
 	"github.com/celestiaorg/celestia-node/nodebuilder/p2p"
 	"github.com/cmwaters/apollo/genesis"
+	"github.com/tendermint/tendermint/types"
 )
 
 //go:embed web/*
@@ -89,32 +90,44 @@ func (m *Conductor) Setup(ctx context.Context) error {
 	m.logger.Printf("setting up services...")
 
 	dir := filepath.Join(m.rootDir, "apollo")
-	if _, err := os.Stat(dir); os.IsExist(err) {
-		return fmt.Errorf("directory %s already exists", dir)
+	var genesis *types.GenesisDoc
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		pendingGenesis, err := m.genesis.Export()
+		if err != nil {
+			return err
+		}
+		for name, service := range m.services {
+			dir := filepath.Join(m.rootDir, name)
+			if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+				return fmt.Errorf("failed to create directory for service %s: %w", name, err)
+			}
+			modifier, err := service.Setup(ctx, dir, pendingGenesis)
+			if err != nil {
+				return fmt.Errorf("failed to setup service %s: %w", name, err)
+			}
+			if modifier != nil {
+				m.genesis = m.genesis.WithModifiers(modifier)
+			}
+		}
+		genesis, err = m.genesis.Export()
+		if err != nil {
+			return err
+		}
+		genesis.SaveAs(filepath.Join(dir, "genesis.json"))
+	} else {
+		// load the existing genesis
+		m.logger.Printf("loading existing genesis from %s", dir)
+		genesis, err = types.GenesisDocFromFile(filepath.Join(dir, "genesis.json"))
+		if err != nil {
+			return err
+		}
 	}
 
-	pendingGenesis, err := m.genesis.Export()
-	if err != nil {
-		return err
-	}
 	for name, service := range m.services {
 		dir := filepath.Join(m.rootDir, name)
-		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-			return fmt.Errorf("failed to create directory for service %s: %w", name, err)
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			return fmt.Errorf("new service %s added has not been setup. Please clear ~/.apollo directory and restart", dir)
 		}
-		modifier, err := service.Setup(ctx, dir, pendingGenesis)
-		if err != nil {
-			return fmt.Errorf("failed to setup service %s: %w", name, err)
-		}
-		if modifier != nil {
-			m.genesis = m.genesis.WithModifiers(modifier)
-		}
-	}
-	genesis, err := m.genesis.Export()
-	if err != nil {
-		return err
-	}
-	for name, service := range m.services {
 		if err := service.Init(ctx, genesis); err != nil {
 			return fmt.Errorf("failed to init service %s: %w", name, err)
 		}
