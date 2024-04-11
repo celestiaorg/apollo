@@ -24,6 +24,8 @@ type Config struct {
 	EnableGUI       bool   `toml:"enable_gui"`
 }
 
+// DefaultConfig returns the default configuration for the faucet
+// There are no limits set
 func DefaultConfig() *Config {
 	return &Config{
 		InitialSupply: 1_000_000_000_000, // 1 million TIA

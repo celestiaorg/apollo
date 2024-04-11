@@ -27,6 +27,8 @@ const (
 	RPCEndpointLabel     = "comet-rpc"
 	GRPCEndpointLabel    = "cosmos-sdk-grpc"
 	APIEndpointLabel     = "cosmos-sdk-api"
+	APIDocsLabel         = "cosmos-api-docs"
+	DocsEndpint          = "https://docs.cosmos.network/api"
 )
 
 type Config = testnode.Config
@@ -61,7 +63,7 @@ func (s *Service) EndpointsNeeded() []string {
 }
 
 func (s *Service) EndpointsProvided() []string {
-	return []string{RPCEndpointLabel, GRPCEndpointLabel, APIEndpointLabel}
+	return []string{RPCEndpointLabel, GRPCEndpointLabel, APIEndpointLabel, APIDocsLabel}
 }
 
 func (s *Service) Setup(ctx context.Context, dir string, pendingGenesis *types.GenesisDoc) (genesis.Modifier, error) {
@@ -188,6 +190,7 @@ func (s *Service) Start(ctx context.Context, dir string, inputs apollo.Endpoints
 		RPCEndpointLabel:  s.config.TmConfig.RPC.ListenAddress,
 		GRPCEndpointLabel: s.config.AppConfig.GRPC.Address,
 		APIEndpointLabel:  s.config.AppConfig.API.Address,
+		APIDocsLabel:      DocsEndpint,
 	}, nil
 }
 

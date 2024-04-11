@@ -67,15 +67,19 @@ function renderStatusData(data) {
         }
         const endpointsDiv = document.createElement('div');
         endpointsDiv.innerHTML = Object.entries(info.provides_endpoints).map(([name, endpoint]) => 
-            `<button onclick="copyEndpointToClipboard('${endpoint}')">${name}</button>`).join(' ');
+            `<button onclick="clickEndpoint('${endpoint}')">${name}</button>`).join(' ');
         cardDiv.appendChild(endpointsDiv);
 
         controlPanel.appendChild(cardDiv);
     }
 }
 
-function copyEndpointToClipboard(endpoint) {
-    navigator.clipboard.writeText(sanitizeEndpoint(endpoint)).then(() => {
+function clickEndpoint(endpoint) {
+    if (/^(http:\/\/|https:\/\/).*/.test(endpoint)) {
+        window.open(endpoint, '_blank').focus();
+        return
+    }
+    navigator.clipboard.writeText(endpoint).then(() => {
         createPopup(`${endpoint} copied to clipboard!`);
     }).catch(err => console.error('Could not copy text: ', err));
 }

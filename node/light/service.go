@@ -25,8 +25,10 @@ import (
 var _ apollo.Service = &Service{}
 
 const (
-	LightServiceName = "light-node"
-	RPCEndpointLabel = "light-rpc"
+	LightServiceName  = "light-node"
+	RPCEndpointLabel  = "light-rpc"
+	DocsEndpointLabel = "light-api-docs"
+	DocsEndpint       = "https://node-rpc-docs.celestia.org"
 )
 
 type Service struct {
@@ -51,7 +53,7 @@ func (s *Service) EndpointsNeeded() []string {
 }
 
 func (s *Service) EndpointsProvided() []string {
-	return []string{RPCEndpointLabel}
+	return []string{RPCEndpointLabel, DocsEndpointLabel}
 }
 
 // TODO: We should automatically fund the light client account so that they can
@@ -125,7 +127,8 @@ func (s *Service) Start(ctx context.Context, dir string, inputs apollo.Endpoints
 	}
 
 	endpoints := map[string]string{
-		RPCEndpointLabel: fmt.Sprintf("http://localhost:%s", s.config.RPC.Port),
+		RPCEndpointLabel:  fmt.Sprintf("http://localhost:%s", s.config.RPC.Port),
+		DocsEndpointLabel: DocsEndpint,
 	}
 
 	return endpoints, s.node.Start(ctx)

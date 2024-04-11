@@ -209,7 +209,7 @@ func (s *Service) Start(ctx context.Context, _ string, input apollo.Endpoints) (
 	}
 
 	return apollo.Endpoints{
-		FaucetAPILabel: s.config.APIAddress,
+		FaucetAPILabel: fmt.Sprintf("http://%s", s.config.APIAddress),
 	}, nil
 }
 
