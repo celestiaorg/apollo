@@ -89,9 +89,9 @@ func (m *Conductor) Setup(ctx context.Context) error {
 	defer m.lock.Unlock()
 	m.logger.Printf("setting up services...")
 
-	dir := filepath.Join(m.rootDir, "apollo")
+	configDir := filepath.Join(m.rootDir, "config")
 	var genesis *types.GenesisDoc
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
+	if _, err := os.Stat(configDir); os.IsNotExist(err) {
 		pendingGenesis, err := m.genesis.Export()
 		if err != nil {
 			return err
@@ -113,11 +113,18 @@ func (m *Conductor) Setup(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		genesis.SaveAs(filepath.Join(dir, "genesis.json"))
+
+		if err := os.MkdirAll(configDir, os.ModePerm); err != nil {
+			return fmt.Errorf("failed to create directory for config: %w", err)
+		}
+
+		if err := genesis.SaveAs(filepath.Join(configDir, "genesis.json")); err != nil {
+			return fmt.Errorf("failed to save genesis: %w", err)
+		}
 	} else {
 		// load the existing genesis
-		m.logger.Printf("loading existing genesis from %s", dir)
-		genesis, err = types.GenesisDocFromFile(filepath.Join(dir, "genesis.json"))
+		m.logger.Printf("loading existing genesis from %s", configDir)
+		genesis, err = types.GenesisDocFromFile(filepath.Join(configDir, "genesis.json"))
 		if err != nil {
 			return err
 		}

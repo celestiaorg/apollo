@@ -90,7 +90,6 @@ func (s *Service) Setup(ctx context.Context, dir string, pendingGenesis *types.G
 			if err != nil {
 				return nil, err
 			}
-			fmt.Println("created new account")
 		} else {
 			return nil, err
 		}
