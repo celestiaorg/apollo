@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log"
@@ -384,7 +385,11 @@ func (c *Conductor) Serve(ctx context.Context) error {
 	}()
 
 	c.logger.Printf("starting service control panel on %s", server.Addr)
-	return server.ListenAndServe()
+	err = server.ListenAndServe()
+	if errors.Is(err, http.ErrServerClosed) && ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return nil
 }
 
 type Status struct {
