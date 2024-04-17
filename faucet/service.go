@@ -103,12 +103,7 @@ func (s *Service) Setup(ctx context.Context, dir string, pendingGenesis *types.G
 	return genesis.FundAccounts(apollo.Codec().Codec, []sdk.AccAddress{address}, sdk.NewCoin(app.BondDenom, sdk.NewIntFromUint64(s.config.InitialSupply))), nil
 }
 
-func (s *Service) Init(ctx context.Context, genesis *types.GenesisDoc) error {
-	// No specific initialization required for the faucet service
-	return nil
-}
-
-func (s *Service) Start(ctx context.Context, _ string, input apollo.Endpoints) (apollo.Endpoints, error) {
+func (s *Service) Start(ctx context.Context, _ string, _ *types.GenesisDoc, input apollo.Endpoints) (apollo.Endpoints, error) {
 	conn, err := grpc.Dial(input[consensus.GRPCEndpointLabel], grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err

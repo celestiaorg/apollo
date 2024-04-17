@@ -62,12 +62,8 @@ func (s *Service) Setup(ctx context.Context, dir string, pendingGenesis *types.G
 	return nil, nodebuilder.Init(*s.config, dir, node.Light)
 }
 
-func (s *Service) Init(ctx context.Context, genesis *types.GenesisDoc) error {
+func (s *Service) Start(ctx context.Context, dir string, genesis *types.GenesisDoc, inputs apollo.Endpoints) (apollo.Endpoints, error) {
 	s.chainID = genesis.ChainID
-	return nil
-}
-
-func (s *Service) Start(ctx context.Context, dir string, inputs apollo.Endpoints) (apollo.Endpoints, error) {
 	headerHash, err := util.GetTrustedHash(ctx, inputs[consensus.RPCEndpointLabel])
 	if err != nil {
 		return nil, err

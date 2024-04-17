@@ -30,6 +30,7 @@ type Conductor struct {
 	rootDir         string
 	setup           bool
 	genesis         *genesis.Genesis
+	genesisDoc      *types.GenesisDoc
 	logger          *log.Logger
 }
 
@@ -49,7 +50,7 @@ func New(dir string, genesis *genesis.Genesis, services ...Service) (*Conductor,
 		serviceMap[name] = service
 	}
 
-	m := &Conductor{
+	c := &Conductor{
 		services:        serviceMap,
 		activeEndpoints: make(map[string]string),
 		activeServices:  make(map[string]Service),
@@ -58,22 +59,22 @@ func New(dir string, genesis *genesis.Genesis, services ...Service) (*Conductor,
 		rootDir:         dir,
 		logger:          log.New(os.Stdout, "", log.LstdFlags),
 	}
-	err := m.CheckEndpoints()
+	err := c.CheckEndpoints()
 	if err != nil {
 		return nil, err
 	}
-	return m, nil
+	return c, nil
 }
 
-func (m *Conductor) CheckEndpoints() error {
+func (c *Conductor) CheckEndpoints() error {
 	endpointMap := make(map[string]bool)
-	for _, service := range m.services {
+	for _, service := range c.services {
 		for _, endpoint := range service.EndpointsProvided() {
 			endpointMap[endpoint] = true
 		}
 	}
 
-	for _, service := range m.services {
+	for _, service := range c.services {
 		for _, requiredEndpoint := range service.EndpointsNeeded() {
 			if !endpointMap[requiredEndpoint] {
 				return fmt.Errorf("required endpoint '%s' for service '%s' is not provided by any service", requiredEndpoint, service.Name())
@@ -84,20 +85,20 @@ func (m *Conductor) CheckEndpoints() error {
 	return nil
 }
 
-func (m *Conductor) Setup(ctx context.Context) error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	m.logger.Printf("setting up services...")
+func (c *Conductor) Setup(ctx context.Context) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.logger.Printf("setting up services...")
 
-	configDir := filepath.Join(m.rootDir, "config")
+	configDir := filepath.Join(c.rootDir, "config")
 	var genesis *types.GenesisDoc
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
-		pendingGenesis, err := m.genesis.Export()
+		pendingGenesis, err := c.genesis.Export()
 		if err != nil {
 			return err
 		}
-		for name, service := range m.services {
-			dir := filepath.Join(m.rootDir, name)
+		for name, service := range c.services {
+			dir := filepath.Join(c.rootDir, name)
 			if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 				return fmt.Errorf("failed to create directory for service %s: %w", name, err)
 			}
@@ -106,10 +107,10 @@ func (m *Conductor) Setup(ctx context.Context) error {
 				return fmt.Errorf("failed to setup service %s: %w", name, err)
 			}
 			if modifier != nil {
-				m.genesis = m.genesis.WithModifiers(modifier)
+				c.genesis = c.genesis.WithModifiers(modifier)
 			}
 		}
-		genesis, err = m.genesis.Export()
+		c.genesisDoc, err = c.genesis.Export()
 		if err != nil {
 			return err
 		}
@@ -123,79 +124,76 @@ func (m *Conductor) Setup(ctx context.Context) error {
 		}
 	} else {
 		// load the existing genesis
-		m.logger.Printf("loading existing genesis from %s", configDir)
-		genesis, err = types.GenesisDocFromFile(filepath.Join(configDir, "genesis.json"))
+		c.logger.Printf("loading existing genesis from %s", configDir)
+		c.genesisDoc, err = types.GenesisDocFromFile(filepath.Join(configDir, "genesis.json"))
 		if err != nil {
 			return err
 		}
+		for name := range c.services {
+			dir := filepath.Join(c.rootDir, name)
+			if _, err := os.Stat(dir); os.IsNotExist(err) {
+				return fmt.Errorf("new service %s added has not been setup. Please clear ~/.apollo directory and restart", dir)
+			}
+		}
 	}
 
-	for name, service := range m.services {
-		dir := filepath.Join(m.rootDir, name)
-		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			return fmt.Errorf("new service %s added has not been setup. Please clear ~/.apollo directory and restart", dir)
-		}
-		if err := service.Init(ctx, genesis); err != nil {
-			return fmt.Errorf("failed to init service %s: %w", name, err)
-		}
-	}
-	m.setup = true
-	m.logger.Printf("services setup successfully at %s", m.rootDir)
+	c.setup = true
+	c.logger.Printf("services setup successfully at %s", c.rootDir)
 	return nil
 }
 
-func (m *Conductor) StartService(ctx context.Context, name string) error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
+func (c *Conductor) StartService(ctx context.Context, name string) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
-	return m.startService(ctx, name)
+	return c.startService(ctx, name)
 }
 
-func (m *Conductor) startService(ctx context.Context, name string) error {
-	m.logger.Printf("starting up service %s", name)
-	service, exists := m.services[name]
+func (c *Conductor) startService(ctx context.Context, name string) error {
+	c.logger.Printf("starting up service %s", name)
+	service, exists := c.services[name]
 	if !exists {
 		return fmt.Errorf("service %s does not exist", name)
 	}
-	if !m.setup {
+	if !c.setup {
 		return fmt.Errorf("Conductor has not setup all services. Call `Setup` first")
 	}
 
 	requiredEndpoints := service.EndpointsNeeded()
 	for _, endpoint := range requiredEndpoints {
-		if _, ok := m.activeEndpoints[endpoint]; !ok {
+		if _, ok := c.activeEndpoints[endpoint]; !ok {
 			return fmt.Errorf("required endpoint '%s' for service '%s' is not active", endpoint, name)
 		}
 	}
 
-	dir := filepath.Join(m.rootDir, name)
-	activeEndpoints, err := service.Start(ctx, dir, m.activeEndpoints)
+	dir := filepath.Join(c.rootDir, name)
+	activeEndpoints, err := service.Start(ctx, dir, c.genesisDoc, c.activeEndpoints)
 	if err != nil {
 		return fmt.Errorf("failed to start service %s: %w", name, err)
 	}
 
 	// Update active endpoints after successful service start
 	for key, value := range activeEndpoints {
-		m.activeEndpoints[key] = value
+		c.activeEndpoints[key] = value
 	}
-	m.activeServices[name] = service
-	m.startOrder = append(m.startOrder, name)
-	m.logger.Printf("service %s started successfully on endpoints: %v", name, activeEndpoints)
+	c.activeServices[name] = service
+	c.startOrder = append(c.startOrder, name)
+	c.logger.Printf("service %s started successfully on endpoints: %v", name, activeEndpoints)
 	return nil
 }
 
-func (m *Conductor) StopService(ctx context.Context, name string) error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
+func (c *Conductor) StopService(ctx context.Context, name string) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
-	return m.stopService(ctx, name)
+	return c.stopService(ctx, name)
 }
 
-func (m *Conductor) stopService(ctx context.Context, name string) error {
-	m.logger.Printf("stopping service %s", name)
+func (c *Conductor) stopService(ctx context.Context, name string) error {
+	c.logger.Printf("stopping service %s", name)
 
 	// Check if the service exists and is active
-	service, exists := m.activeServices[name]
+	service, exists := c.activeServices[name]
 	if !exists {
 		return fmt.Errorf("service %s is not active or does not exist", name)
 	}
@@ -203,7 +201,7 @@ func (m *Conductor) stopService(ctx context.Context, name string) error {
 	endpointsProvided := service.EndpointsProvided()
 
 	// Check if any active service requires the endpoints provided by this service
-	for _, activeService := range m.activeServices {
+	for _, activeService := range c.activeServices {
 		if activeService.Name() == name {
 			continue // Skip the service being stopped
 		}
@@ -222,71 +220,71 @@ func (m *Conductor) stopService(ctx context.Context, name string) error {
 	}
 
 	// Update active services and endpoints
-	delete(m.activeServices, name)
+	delete(c.activeServices, name)
 	for _, endpoint := range service.EndpointsProvided() {
-		delete(m.activeEndpoints, endpoint)
+		delete(c.activeEndpoints, endpoint)
 	}
 
-	m.logger.Printf("service %s stopped successfully", name)
+	c.logger.Printf("service %s stopped successfully", name)
 
 	return nil
 }
 
-func (m *Conductor) Stop(ctx context.Context) error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	for i := len(m.startOrder) - 1; i >= 0; i-- {
-		if !m.isServiceRunning(m.startOrder[i]) {
+func (c *Conductor) Stop(ctx context.Context) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	for i := len(c.startOrder) - 1; i >= 0; i-- {
+		if !c.isServiceRunning(c.startOrder[i]) {
 			continue
 		}
-		if err := m.stopService(ctx, m.startOrder[i]); err != nil {
+		if err := c.stopService(ctx, c.startOrder[i]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (m *Conductor) Cleanup() error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	if len(m.activeServices) > 0 {
+func (c *Conductor) Cleanup() error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if len(c.activeServices) > 0 {
 		return fmt.Errorf("cannot cleanup Conductor with active services")
 	}
 
-	m.logger.Printf("cleaning up all services at %s", m.rootDir)
-	return os.RemoveAll(m.rootDir)
+	c.logger.Printf("cleaning up all services at %s", c.rootDir)
+	return os.RemoveAll(c.rootDir)
 }
 
-func (m *Conductor) IsServiceRunning(name string) bool {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	return m.isServiceRunning(name)
+func (c *Conductor) IsServiceRunning(name string) bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	return c.isServiceRunning(name)
 }
 
-func (m *Conductor) isServiceRunning(name string) bool {
-	_, exists := m.activeServices[name]
+func (c *Conductor) isServiceRunning(name string) bool {
+	_, exists := c.activeServices[name]
 	return exists
 }
 
-func (m *Conductor) ServiceStatus() map[string]Status {
-	m.lock.Lock()
-	defer m.lock.Unlock()
+func (c *Conductor) ServiceStatus() map[string]Status {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
-	return m.serviceStatus()
+	return c.serviceStatus()
 }
 
-func (m *Conductor) serviceStatus() map[string]Status {
+func (c *Conductor) serviceStatus() map[string]Status {
 	serviceStatus := make(map[string]Status)
-	for name, service := range m.services {
+	for name, service := range c.services {
 		status := Status{
 			RequiredEndpoints: service.EndpointsNeeded(),
 			ProvidesEndpoints: make(map[string]string),
 		}
-		if _, ok := m.activeServices[name]; ok {
+		if _, ok := c.activeServices[name]; ok {
 			status.Running = true
 		}
 		for _, providedEndpoint := range service.EndpointsProvided() {
-			endpoint, ok := m.activeEndpoints[providedEndpoint]
+			endpoint, ok := c.activeEndpoints[providedEndpoint]
 			if !ok {
 				continue
 			}
@@ -297,10 +295,10 @@ func (m *Conductor) serviceStatus() map[string]Status {
 	return serviceStatus
 }
 
-func (m *Conductor) Serve(ctx context.Context) error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	if !m.setup {
+func (c *Conductor) Serve(ctx context.Context) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if !c.setup {
 		return fmt.Errorf("Conductor has not setup the services. Call `Setup` first")
 	}
 	ctx, cancel := context.WithCancel(ctx)
@@ -312,7 +310,7 @@ func (m *Conductor) Serve(ctx context.Context) error {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		status := m.serviceStatus()
+		status := c.serviceStatus()
 		statusJSON, err := json.Marshal(status)
 		if err != nil {
 			http.Error(w, "Failed to marshal status", http.StatusInternalServerError)
@@ -320,9 +318,9 @@ func (m *Conductor) Serve(ctx context.Context) error {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		if _, err := w.Write(statusJSON); err != nil {
-			m.logger.Printf("failed to write status: %s", err.Error())
+			c.logger.Printf("failed to write status: %s", err.Error())
 		}
-		m.logger.Printf("served status response")
+		c.logger.Printf("served status response")
 	})
 
 	mux.HandleFunc("/start/", func(w http.ResponseWriter, r *http.Request) {
@@ -333,13 +331,13 @@ func (m *Conductor) Serve(ctx context.Context) error {
 		pathParts := strings.Split(r.URL.Path, "/")
 		if len(pathParts) < 3 {
 			http.Error(w, "Service name is required in the URL path. For example /start/consensus-node", http.StatusBadRequest)
-			m.logger.Printf("received bad request to start service")
+			c.logger.Printf("received bad request to start service")
 			return
 		}
 		serviceName := pathParts[2]
-		if err := m.startService(ctx, serviceName); err != nil {
+		if err := c.startService(ctx, serviceName); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			m.logger.Printf("failed to start service %s: %s", serviceName, err.Error())
+			c.logger.Printf("failed to start service %s: %s", serviceName, err.Error())
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -353,13 +351,13 @@ func (m *Conductor) Serve(ctx context.Context) error {
 		pathParts := strings.Split(r.URL.Path, "/")
 		if len(pathParts) < 3 {
 			http.Error(w, "Service name is required in the URL path. For example /stop/consensus-node", http.StatusBadRequest)
-			m.logger.Printf("received bad request to stop service")
+			c.logger.Printf("received bad request to stop service")
 			return
 		}
 		serviceName := pathParts[2]
-		if err := m.stopService(ctx, serviceName); err != nil {
+		if err := c.stopService(ctx, serviceName); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			m.logger.Printf("failed to stop service %s: %s", serviceName, err.Error())
+			c.logger.Printf("failed to stop service %s: %s", serviceName, err.Error())
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -380,12 +378,12 @@ func (m *Conductor) Serve(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
 		if err := server.Shutdown(context.Background()); err != nil {
-			m.logger.Printf("failed to shutdown server: %s", err.Error())
+			c.logger.Printf("failed to shutdown server: %s", err.Error())
 		}
-		m.logger.Printf("control panel server shutdown successfully")
+		c.logger.Printf("control panel server shutdown successfully")
 	}()
 
-	m.logger.Printf("starting service control panel on %s", server.Addr)
+	c.logger.Printf("starting service control panel on %s", server.Addr)
 	return server.ListenAndServe()
 }
 

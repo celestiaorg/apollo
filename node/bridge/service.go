@@ -59,12 +59,8 @@ func (s *Service) Setup(ctx context.Context, dir string, pendingGenesis *types.G
 	return nil, nodebuilder.Init(*s.config, dir, node.Bridge)
 }
 
-func (s *Service) Init(ctx context.Context, genesis *types.GenesisDoc) error {
+func (s *Service) Start(ctx context.Context, dir string, genesis *types.GenesisDoc, inputs apollo.Endpoints) (apollo.Endpoints, error) {
 	s.chainID = genesis.ChainID
-	return nil
-}
-
-func (s *Service) Start(ctx context.Context, dir string, inputs apollo.Endpoints) (apollo.Endpoints, error) {
 	rpcEndpoint, ok := inputs[consensus.RPCEndpointLabel]
 	if !ok {
 		return nil, fmt.Errorf("RPC endpoint not provided")

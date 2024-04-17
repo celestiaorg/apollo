@@ -23,8 +23,7 @@ type Service interface {
 	EndpointsNeeded() []string
 	EndpointsProvided() []string
 	Setup(_ context.Context, dir string, pendingGenesis *types.GenesisDoc) (genesis.Modifier, error)
-	Init(_ context.Context, genesis *types.GenesisDoc) error
-	Start(_ context.Context, dir string, inputs Endpoints) (Endpoints, error)
+	Start(_ context.Context, dir string, genesis *types.GenesisDoc, inputs Endpoints) (Endpoints, error)
 	Stop(context.Context) error
 }
 

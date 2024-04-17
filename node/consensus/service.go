@@ -139,15 +139,13 @@ func (s *Service) Setup(ctx context.Context, dir string, pendingGenesis *types.G
 	return genModifier, nil
 }
 
-func (s *Service) Init(ctx context.Context, genesis *types.GenesisDoc) error {
+func (s *Service) Start(ctx context.Context, dir string, genesis *types.GenesisDoc, inputs apollo.Endpoints) (apollo.Endpoints, error) {
+	s.config.TmConfig.SetRoot(dir)
 	if err := genesis.SaveAs(s.config.TmConfig.GenesisFile()); err != nil {
-		return err
+		return nil, err
 	}
 	s.chainID = genesis.ChainID
-	return nil
-}
 
-func (s *Service) Start(ctx context.Context, dir string, inputs apollo.Endpoints) (apollo.Endpoints, error) {
 	tmNode, app, err := NewCometNode(dir, s.config)
 	if err != nil {
 		return nil, err
