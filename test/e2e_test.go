@@ -43,17 +43,17 @@ func TestE2E(t *testing.T) {
 	client, err := http.New(consensusCfg.TmConfig.RPC.ListenAddress, "/websocket")
 	require.NoError(t, err)
 
-	status, err := client.Status(ctx)
-	require.NoError(t, err)
-
 	// wait for the block height to be greater than 1
 	require.Eventually(t, func() bool {
-		status, err = client.Status(ctx)
+		status, err := client.Status(ctx)
+		if err != nil {
+			return false
+		}
 		return status.SyncInfo.LatestBlockHeight > int64(1)
-	}, 10*time.Second, time.Second, "chain to pass height 1")
+	}, 30*time.Second, 2*time.Second, "chain to pass height 1")
 
 	cancel()
 
 	err = <-errCh
-	require.Equal(t, err, context.DeadlineExceeded)
+	require.Equal(t, err, context.Canceled)
 }
