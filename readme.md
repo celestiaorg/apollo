@@ -32,7 +32,7 @@ The binary comes with a faucet for easily funding accounts. By default it will b
 
 ## Authentication tokens
 
-To view your authentication token for a light node, use the following command:
+To view your authentication token for the Apollo light node, use the following command:
 
 ```bash
 celestia light auth admin --node.store $HOME/.apollo/light-node
