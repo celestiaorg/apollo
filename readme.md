@@ -30,6 +30,14 @@ The binary comes with a faucet for easily funding accounts. By default it will b
 - `/fund/<celestia_address>`: Funds the listed celestia address returning the transaction hash if successful or an error
 - `/status`: Returns the status of the faucet, including the faucet account and any configurations
 
+## Authentication tokens
+
+To view your authentication token for a light node, use the following command:
+
+```bash
+celestia light auth admin --node.store $HOME/.apollo/light-node
+```
+
 ## Adding Services
 
 The atomic unit of this development kit is a service. It can be seen as an arbitrary process that requires certain inputs denoted as endpoints and providing certain outputs also in the form of endpoints. These are predominantly used as the ports these services will communicate across. These services can be started and stopped.
