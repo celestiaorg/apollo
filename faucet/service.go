@@ -76,11 +76,6 @@ func (s *Service) Setup(ctx context.Context, dir string, pendingGenesis *types.G
 		return nil, err
 	}
 
-	s.store, err = NewStore(dir, s.config)
-	if err != nil {
-		return nil, err
-	}
-
 	record, err := s.keyring.Key(FaucetServiceName)
 	if err != nil {
 		if errors.Is(err, sdkerrors.ErrKeyNotFound) {
@@ -103,10 +98,22 @@ func (s *Service) Setup(ctx context.Context, dir string, pendingGenesis *types.G
 	return genesis.FundAccounts(apollo.Codec().Codec, []sdk.AccAddress{address}, sdk.NewCoin(app.BondDenom, sdk.NewIntFromUint64(s.config.InitialSupply))), nil
 }
 
-func (s *Service) Start(ctx context.Context, _ string, _ *types.GenesisDoc, input apollo.Endpoints) (apollo.Endpoints, error) {
+func (s *Service) Start(ctx context.Context, dir string, _ *types.GenesisDoc, input apollo.Endpoints) (apollo.Endpoints, error) {
 	conn, err := grpc.Dial(input[consensus.GRPCEndpointLabel], grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
+	}
+
+	s.store, err = NewStore(dir, s.config)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.keyring == nil {
+		s.keyring, err = keyring.New(app.Name, keyring.BackendTest, dir, nil, cdc.Codec)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	signer, err := user.SetupSingleSigner(ctx, s.keyring, conn, cdc)

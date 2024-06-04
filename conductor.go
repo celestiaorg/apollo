@@ -92,7 +92,6 @@ func (c *Conductor) Setup(ctx context.Context) error {
 	c.logger.Printf("setting up services...")
 
 	configDir := filepath.Join(c.rootDir, "config")
-	var genesis *types.GenesisDoc
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
 		pendingGenesis, err := c.genesis.Export()
 		if err != nil {
@@ -120,7 +119,7 @@ func (c *Conductor) Setup(ctx context.Context) error {
 			return fmt.Errorf("failed to create directory for config: %w", err)
 		}
 
-		if err := genesis.SaveAs(filepath.Join(configDir, "genesis.json")); err != nil {
+		if err := c.genesisDoc.SaveAs(filepath.Join(configDir, "genesis.json")); err != nil {
 			return fmt.Errorf("failed to save genesis: %w", err)
 		}
 	} else {
