@@ -35,6 +35,9 @@ type Conductor struct {
 	logger          *log.Logger
 }
 
+// New creates a conductor for managing the services. If there is
+// an existing genesis within the directory that is provided 
+// then the genesis here will be ignored
 func New(dir string, genesis *genesis.Genesis, services ...Service) (*Conductor, error) {
 	if len(services) == 0 {
 		return nil, fmt.Errorf("no services provided")
@@ -67,6 +70,8 @@ func New(dir string, genesis *genesis.Genesis, services ...Service) (*Conductor,
 	return c, nil
 }
 
+// CheckEndpoints makes sure that there is at least one provider
+// for every endpoint that a service requires.
 func (c *Conductor) CheckEndpoints() error {
 	endpointMap := make(map[string]bool)
 	for _, service := range c.services {
@@ -86,6 +91,8 @@ func (c *Conductor) CheckEndpoints() error {
 	return nil
 }
 
+// Setup initializes all services and generates the genesis
+// to be passed to each service upon startup.
 func (c *Conductor) Setup(ctx context.Context) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -295,6 +302,8 @@ func (c *Conductor) serviceStatus() map[string]Status {
 	return serviceStatus
 }
 
+// Serve starts the web server for the conductor, visualising the current
+// running services and providing a GUI for basic control of all services.
 func (c *Conductor) Serve(ctx context.Context) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
