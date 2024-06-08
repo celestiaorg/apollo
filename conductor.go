@@ -36,7 +36,7 @@ type Conductor struct {
 }
 
 // New creates a conductor for managing the services. If there is
-// an existing genesis within the directory that is provided 
+// an existing genesis within the directory that is provided
 // then the genesis here will be ignored
 func New(dir string, genesis *genesis.Genesis, services ...Service) (*Conductor, error) {
 	if len(services) == 0 {

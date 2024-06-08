@@ -159,9 +159,16 @@ func (s *Service) Start(ctx context.Context, dir string, genesis *types.GenesisD
 
 	nodeCtx := testnode.NewContext(ctx, kr, s.config.TmConfig, s.chainID)
 
-	nodeCtx, stopNode, err := testnode.StartNode(tmNode, nodeCtx)
+	nodeCtx, _, err = testnode.StartNode(tmNode, nodeCtx)
 	if err != nil {
 		return nil, err
+	}
+	stopNode := func() error {
+		if err := tmNode.Stop(); err != nil {
+			return err
+		}
+		tmNode.Wait()
+		return nil
 	}
 
 	nodeCtx, cleanupGRPC, err := testnode.StartGRPCServer(app, s.config.AppConfig, nodeCtx)
