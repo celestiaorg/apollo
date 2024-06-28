@@ -109,7 +109,18 @@ func (c *Conductor) Setup(ctx context.Context) error {
 			if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 				return fmt.Errorf("failed to create directory for service %s: %w", name, err)
 			}
+
+			// supress output from services
+			rescueStdout := os.Stdout
+			_, w, _ := os.Pipe()
+			os.Stdout = w
+
 			modifier, err := service.Setup(ctx, dir, pendingGenesis)
+
+			// restore stdout
+			w.Close()
+			os.Stdout = rescueStdout
+
 			if err != nil {
 				return fmt.Errorf("failed to setup service %s: %w", name, err)
 			}
@@ -173,8 +184,18 @@ func (c *Conductor) startService(ctx context.Context, name string) error {
 		}
 	}
 
+	// supress output from services
+	rescueStdout := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+
 	dir := filepath.Join(c.rootDir, name)
 	activeEndpoints, err := service.Start(ctx, dir, c.genesisDoc, c.activeEndpoints)
+
+	// restore stdout before error check
+	w.Close()
+	os.Stdout = rescueStdout
+
 	if err != nil {
 		return fmt.Errorf("failed to start service %s: %w", name, err)
 	}

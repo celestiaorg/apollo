@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"time"
 
@@ -11,9 +12,7 @@ import (
 	"github.com/celestiaorg/celestia-app/test/util/testnode"
 	"github.com/cmwaters/apollo"
 	"github.com/cmwaters/apollo/genesis"
-	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/tendermint/tendermint/config"
@@ -44,13 +43,15 @@ type Service struct {
 	config  *Config
 	chainID string
 	closers []func() error
+	kr      keyring.Keyring
 }
 
-func New(config *Config) *Service {
+func New(config *Config, kr keyring.Keyring) *Service {
 	// override some config values
 	config.TmConfig.TxIndex.Indexer = "kv"
 	return &Service{
 		config: config,
+		kr:     kr,
 	}
 }
 
@@ -67,36 +68,14 @@ func (s *Service) EndpointsProvided() []string {
 }
 
 func (s *Service) Setup(ctx context.Context, dir string, pendingGenesis *types.GenesisDoc) (genesis.Modifier, error) {
-	kr, err := keyring.New(app.Name, keyring.BackendTest, dir, nil, cdc.Codec)
+	record, err := s.kr.Key(ConsensusServiceName)
 	if err != nil {
 		return nil, err
 	}
-
-	records, err := kr.List()
+	pubKey, err := record.GetPubKey()
+	fmt.Println("consensusKeyFromCons", pubKey)
 	if err != nil {
 		return nil, err
-	}
-	var pubKey cryptotypes.PubKey
-	if len(records) == 0 {
-		// create the keys if they don't yet exist
-		path := hd.CreateHDPath(sdk.CoinType, 0, 0).String()
-		record, _, err := kr.NewMnemonic(ConsensusServiceName, keyring.English, keyring.DefaultBIP39Passphrase, path, hd.Secp256k1)
-		if err != nil {
-			return nil, err
-		}
-		pubKey, err = record.GetPubKey()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		record, err := kr.Key(ConsensusServiceName)
-		if err != nil {
-			return nil, err
-		}
-		pubKey, err = record.GetPubKey()
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	s.config.TmConfig.SetRoot(dir)
@@ -115,7 +94,7 @@ func (s *Service) Setup(ctx context.Context, dir string, pendingGenesis *types.G
 
 	val := genesis.NewDefaultValidator(ConsensusServiceName)
 	val.ConsensusKey = filePV.Key.PrivKey
-	genTx, err := val.GenTx(cdc, kr, pendingGenesis.ChainID)
+	genTx, err := val.GenTx(cdc, s.kr, pendingGenesis.ChainID)
 	if err != nil {
 		return nil, err
 	}
