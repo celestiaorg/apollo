@@ -54,7 +54,7 @@ func (s *Service) Start(ctx context.Context, dir string, genesis *types.GenesisD
 	}
 
 	s.docker = compose
-	err = compose.Up(ctx, tc.WithRecreate(api.RecreateForce))
+	err = compose.Up(ctx)
 	if err != nil {
 		stopErr := s.Stop(ctx)
 		return nil, multierr.Combine(err, stopErr)
