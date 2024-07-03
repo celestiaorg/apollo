@@ -1,0 +1,80 @@
+version: "3.6"
+
+services:
+  indexer:
+    image: ghcr.io/celenium-io/celestia-indexer:${TAG:-master}
+    build:
+      dockerfile: build/indexer/Dockerfile
+      context: .
+    env_file:
+      - .env
+    restart: always
+    environment:
+      - POSTGRES_HOST=${POSTGRES_HOST:-host.docker.internal}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-celestia}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - CELESTIA_NODE_URL=http://host.docker.internal:26657
+      - CELESTIA_DAL_API_URL=ws://host.docker.internal:36658
+      - CELESTIA_NODE_WS_UR=-ws://host.docker.internal:36658
+    depends_on:
+      - db
+    logging: &celestia-logging
+      options:
+        max-size: 10m
+        max-file: "5"
+
+  api:
+    restart: always
+    image: ghcr.io/celenium-io/celestia-indexer-api:${TAG:-master}
+    build:
+      context: .
+      dockerfile: build/api/Dockerfile
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_HOST=${POSTGRES_HOST:-host.docker.internal}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-celestia}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+    depends_on:
+      - db
+    ports:
+      - "127.0.0.1:9876:9876"
+    logging: *celestia-logging
+
+  frontend:
+    restart: always
+    image: celenium-frontend:${TAG:-master}
+    build:
+      context: .
+      dockerfile: build/frontend/Dockerfile
+    ports:
+      - "127.0.0.1:9090:9090"
+    logging: *celestia-logging
+    depends_on:
+      - api
+
+  db:
+    command:
+      - -cshared_preload_libraries=timescaledb,pg_stat_statements
+      - -cpg_stat_statements.track=all
+    image: timescale/timescaledb-ha:pg15-latest
+    restart: always
+    volumes:
+      - db:/home/postgres/pgdata/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      - POSTGRES_HOST=${POSTGRES_HOST:-host.docker.internal}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-celestia}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d celestia"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *celestia-logging
+volumes:
+  db:
