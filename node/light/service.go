@@ -123,7 +123,7 @@ func (s *Service) Start(ctx context.Context, dir string, genesis *types.GenesisD
 	}
 
 	endpoints := map[string]string{
-		RPCEndpointLabel:  fmt.Sprintf("http://localhost:%s", s.config.RPC.Port),
+		RPCEndpointLabel:  fmt.Sprintf("ws://localhost:%s", s.config.RPC.Port),
 		DocsEndpointLabel: DocsEndpint,
 	}
 

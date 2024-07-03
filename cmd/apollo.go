@@ -15,6 +15,7 @@ import (
 	"github.com/celestiaorg/celestia-node/nodebuilder"
 	"github.com/celestiaorg/celestia-node/nodebuilder/node"
 	"github.com/cmwaters/apollo"
+	"github.com/cmwaters/apollo/celenium/indexer"
 	"github.com/cmwaters/apollo/faucet"
 	"github.com/cmwaters/apollo/genesis"
 	apolloKeyring "github.com/cmwaters/apollo/keyring"
@@ -111,5 +112,6 @@ func Run(ctx context.Context) error {
 		faucet.New(faucet.DefaultConfig()),
 		bridge.New(nodebuilder.DefaultConfig(node.Bridge)),
 		light.New(lightCfg),
+		indexer.New(),
 	)
 }

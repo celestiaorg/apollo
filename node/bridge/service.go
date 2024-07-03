@@ -72,6 +72,7 @@ func (s *Service) Start(ctx context.Context, dir string, genesis *types.GenesisD
 	}
 	s.config.Header.TrustedHash = headerHash
 	s.config.RPC.Port = RPCPort
+	s.config.RPC.SkipAuth = true
 
 	// TODO: we don't take the consensus nodes endpoints here and inject them into the config,
 	// instead we assume they are the same as the defaults
@@ -100,7 +101,7 @@ func (s *Service) Start(ctx context.Context, dir string, genesis *types.GenesisD
 	}
 
 	endpoints := map[string]string{
-		RPCEndpointLabel: fmt.Sprintf("http://localhost:%s", s.config.RPC.Port),
+		RPCEndpointLabel: fmt.Sprintf("ws://localhost:%s", s.config.RPC.Port),
 		P2PEndpointLabel: string(addrInfo),
 	}
 

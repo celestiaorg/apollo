@@ -2,7 +2,6 @@ package consensus
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"time"
 
@@ -73,7 +72,6 @@ func (s *Service) Setup(ctx context.Context, dir string, pendingGenesis *types.G
 		return nil, err
 	}
 	pubKey, err := record.GetPubKey()
-	fmt.Println("consensusKeyFromCons", pubKey)
 	if err != nil {
 		return nil, err
 	}
@@ -124,19 +122,15 @@ func (s *Service) Start(ctx context.Context, dir string, genesis *types.GenesisD
 		return nil, err
 	}
 	s.chainID = genesis.ChainID
+	s.config.TmConfig.PrivValidatorStateFile()
+	s.config.TmConfig.Storage.DiscardABCIResponses = false
 
 	tmNode, app, err := NewCometNode(dir, s.config)
 	if err != nil {
 		return nil, err
 	}
-	cdc := apollo.Codec()
 
-	kr, err := keyring.New(ConsensusServiceName, keyring.BackendTest, dir, nil, cdc.Codec)
-	if err != nil {
-		return nil, err
-	}
-
-	nodeCtx := testnode.NewContext(ctx, kr, s.config.TmConfig, s.chainID)
+	nodeCtx := testnode.NewContext(ctx, s.kr, s.config.TmConfig, s.chainID)
 
 	nodeCtx, _, err = testnode.StartNode(tmNode, nodeCtx)
 	if err != nil {

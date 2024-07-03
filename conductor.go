@@ -185,16 +185,16 @@ func (c *Conductor) startService(ctx context.Context, name string) error {
 	}
 
 	// supress output from services
-	rescueStdout := os.Stdout
-	_, w, _ := os.Pipe()
-	os.Stdout = w
+	// rescueStdout := os.Stdout
+	// _, w, _ := os.Pipe()
+	// os.Stdout = w
 
 	dir := filepath.Join(c.rootDir, name)
 	activeEndpoints, err := service.Start(ctx, dir, c.genesisDoc, c.activeEndpoints)
 
 	// restore stdout before error check
-	w.Close()
-	os.Stdout = rescueStdout
+	// w.Close()
+	// os.Stdout = rescueStdout
 
 	if err != nil {
 		return fmt.Errorf("failed to start service %s: %w", name, err)
