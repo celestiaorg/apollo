@@ -11,8 +11,7 @@ RUN apk --no-cache add ca-certificates
 RUN apk --no-cache add git
 
 RUN mkdir -p $GOPATH/src/github.com/celenium-io/celestia-indexer/
-RUN cd $GOPATH/src/github.com/celenium-io/
-RUN git clone https://github.com/celenium-io/celestia-indexer.git $GOPATH/src/github.com/celenium-io/celestia-indexer
+RUN git clone https://github.com/distractedm1nd/celestia-indexer.git $GOPATH/src/github.com/celenium-io/celestia-indexer
 
 WORKDIR $GOPATH/src/github.com/celenium-io/celestia-indexer
 RUN go mod download

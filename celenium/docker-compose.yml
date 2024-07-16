@@ -10,19 +10,20 @@ services:
       - .env
     restart: always
     environment:
-      - POSTGRES_HOST=${POSTGRES_HOST:-host.docker.internal}
+      - POSTGRES_HOST=${POSTGRES_HOST:-localhost}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-celestia}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
-      - CELESTIA_NODE_URL=http://host.docker.internal:26657
-      - CELESTIA_DAL_API_URL=ws://host.docker.internal:36658
-      - CELESTIA_NODE_WS_UR=-ws://host.docker.internal:36658
+      - CELESTIA_NODE_URL=http://localhost:26657
+      - CELESTIA_DAL_API_URL=ws://localhost:36658
+      - CELESTIA_NODE_WS_UR=-ws://localhost:36658
     depends_on:
       - db
     logging: &celestia-logging
       options:
         max-size: 10m
         max-file: "5"
+    network_mode: "host"
 
   api:
     restart: always
@@ -37,10 +38,13 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-celestia}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - ALLOW_ALL_CORS_ORIGINS=${ALLOW_ALL_CORS_ORIGINS:-true}
     depends_on:
       - db
     ports:
       - "127.0.0.1:9876:9876"
+    expose:
+      - 9876
     logging: *celestia-logging
 
   frontend:
@@ -50,10 +54,13 @@ services:
       context: .
       dockerfile: build/frontend/Dockerfile
     ports:
-      - "127.0.0.1:9090:9090"
+      - "127.0.0.1:3000:3000"
+    expose:
+      - 3000
     logging: *celestia-logging
     depends_on:
       - api
+    network_mode: "host"
 
   db:
     command:
@@ -65,8 +72,10 @@ services:
       - db:/home/postgres/pgdata/data
     ports:
       - "127.0.0.1:5432:5432"
+    expose:
+      - 5432
     environment:
-      - POSTGRES_HOST=${POSTGRES_HOST:-host.docker.internal}
+      - POSTGRES_HOST=${POSTGRES_HOST:-localhost}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-celestia}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
@@ -76,5 +85,6 @@ services:
       timeout: 5s
       retries: 5
     logging: *celestia-logging
+    network_mode: "host"
 volumes:
   db:

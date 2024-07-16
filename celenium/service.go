@@ -70,7 +70,7 @@ func (s *Service) Start(ctx context.Context, dir string, genesis *types.GenesisD
 		BackendAPILabel: "http://127.0.0.1:9876",
 	}
 
-	return nil, err
+	return endpoints, err
 }
 
 func (s *Service) Stop(ctx context.Context) error {
