@@ -40,10 +40,34 @@ func Document(
 		return nil, err
 	}
 
+	metadata := banktypes.Metadata{
+		Description: "The native token of the Celestia network.",
+		Base:        appconsts.BondDenom,
+		Name:        "TIA",
+		Display:     "TIA",
+		Symbol:      "TIA",
+		DenomUnits: []*banktypes.DenomUnit{
+			{
+				Denom:    appconsts.BondDenom,
+				Exponent: 0,
+				Aliases: []string{
+					"microtia",
+				},
+			},
+			{
+				Denom:    "TIA",
+				Exponent: 6,
+				Aliases:  []string{},
+			},
+		},
+	}
+
 	authGenState := authtypes.DefaultGenesisState()
 	bankGenState := banktypes.DefaultGenesisState()
+
 	authGenState.Accounts = append(authGenState.Accounts, accounts...)
 	bankGenState.Balances = append(bankGenState.Balances, genBals...)
+	bankGenState.DenomMetadata = append(bankGenState.DenomMetadata, metadata)
 	bankGenState.Balances = banktypes.SanitizeGenesisBalances(bankGenState.Balances)
 
 	// perform some basic validation of the genesis state

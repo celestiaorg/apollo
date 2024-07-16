@@ -1,0 +1,49 @@
+version: 0.0.1
+
+log_level: ${LOG_LEVEL:-info}
+
+indexer:
+  name: ${INDEXER_NAME:-dipdup_celestia_indexer}
+  threads_count: ${INDEXER_THREADS_COUNT:-1}
+  block_period: ${INDEXER_BLOCK_PERIOD:-15} # seconds
+  # scripts_dir: ${INDEXER_SCRIPTS_DIR:-./database}
+  blob_saver: ${INDEXER_BLOB_SAVER}
+
+database:
+  kind: postgres
+  host: ${POSTGRES_HOST:-localhost}
+  port: ${POSTGRES_PORT:-5432}
+  user: ${POSTGRES_USER:-postgres}
+  password: ${POSTGRES_PASSWORD:-password}
+  database: ${POSTGRES_DB:-celestia}
+
+datasources:
+  node_rpc:
+    kind: celestia_node_rpc
+    url: ${CELESTIA_NODE_URL}
+    rps: ${CELESTIA_NODE_RPS:-5}
+    timeout: ${CELESTIA_NODE_TIMEOUT:-10}
+  node_ws:
+    kind: celestia_node_ws
+    url: ${CELESTIA_NODE_WS_URL-ws://localhost:36658}
+  dal_api:
+    kind: celestia_api
+    url: ${CELESTIA_DAL_API_URL}
+    rps: ${CELESTIA_DAL_API_RPS:-5}
+    timeout: ${CELESTIA_DAL_API_TIMEOUT:-10}
+  binance:
+    kind: binance
+    url: ${BINANCE_API_URL:-https://api.binance.com/}
+    rps: ${BINANCE_API_RPS:-5}
+    timeout: ${BINANCE_API_TIMEOUT:-10}
+
+api:
+  bind: ${API_HOST:-0.0.0.0}:${API_PORT:-9876}
+  rate_limit: ${API_RATE_LIMIT:-0}
+  prometheus: ${API_PROMETHEUS_ENABLED:-true}
+  request_timeout: ${API_REQUEST_TIMEOUT:-30}
+  blob_receiver: ${BLOB_RECEIVER:-dal_api}
+  # sentry_dsn: ${SENTRY_DSN}
+  websocket: ${API_WEBSOCKET_ENABLED:-true}
+
+environment: ${CELENIUM_ENV:-production}
