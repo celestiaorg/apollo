@@ -1,4 +1,4 @@
-module github.com/cmwaters/apollo
+module github.com/celestiaorg/apollo
 
 go 1.22.0
 

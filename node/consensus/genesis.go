@@ -3,7 +3,7 @@ package consensus
 import (
 	"encoding/json"
 
-	"github.com/cmwaters/apollo/genesis"
+	"github.com/celestiaorg/apollo/genesis"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"

@@ -14,13 +14,13 @@ import (
 
 	"log"
 
+	"github.com/celestiaorg/apollo"
+	"github.com/celestiaorg/apollo/genesis"
+	"github.com/celestiaorg/apollo/node/consensus"
 	"github.com/celestiaorg/celestia-app/app"
 	"github.com/celestiaorg/celestia-app/app/encoding"
 	"github.com/celestiaorg/celestia-app/pkg/appconsts"
 	"github.com/celestiaorg/celestia-app/pkg/user"
-	"github.com/cmwaters/apollo"
-	"github.com/cmwaters/apollo/genesis"
-	"github.com/cmwaters/apollo/node/consensus"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
