@@ -14,8 +14,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/celestiaorg/apollo/genesis"
 	"github.com/celestiaorg/celestia-node/nodebuilder/p2p"
-	"github.com/cmwaters/apollo/genesis"
 	"github.com/tendermint/tendermint/types"
 )
 

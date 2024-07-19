@@ -8,16 +8,16 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/celestiaorg/apollo"
+	"github.com/celestiaorg/apollo/faucet"
+	"github.com/celestiaorg/apollo/genesis"
+	"github.com/celestiaorg/apollo/node/bridge"
+	"github.com/celestiaorg/apollo/node/consensus"
+	"github.com/celestiaorg/apollo/node/light"
 	"github.com/celestiaorg/celestia-app/app"
 	"github.com/celestiaorg/celestia-app/test/util/testnode"
 	"github.com/celestiaorg/celestia-node/nodebuilder"
 	"github.com/celestiaorg/celestia-node/nodebuilder/node"
-	"github.com/cmwaters/apollo"
-	"github.com/cmwaters/apollo/faucet"
-	"github.com/cmwaters/apollo/genesis"
-	"github.com/cmwaters/apollo/node/bridge"
-	"github.com/cmwaters/apollo/node/consensus"
-	"github.com/cmwaters/apollo/node/light"
 )
 
 const ApolloDir = ".apollo"

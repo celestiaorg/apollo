@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/cmwaters/apollo/genesis"
+	"github.com/celestiaorg/apollo/genesis"
 )
 
 // Run is the high level function which will take a list of services and

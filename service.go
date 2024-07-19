@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/celestiaorg/apollo/genesis"
 	"github.com/celestiaorg/celestia-app/app"
 	"github.com/celestiaorg/celestia-app/app/encoding"
-	"github.com/cmwaters/apollo/genesis"
 	"github.com/tendermint/tendermint/types"
 )
 
