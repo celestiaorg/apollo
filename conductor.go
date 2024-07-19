@@ -240,6 +240,11 @@ func (c *Conductor) stopService(ctx context.Context, name string) error {
 func (c *Conductor) Stop(ctx context.Context) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+
+	return c.stop(ctx)
+}
+
+func (c *Conductor) stop(ctx context.Context) error {
 	for i := len(c.startOrder) - 1; i >= 0; i-- {
 		if !c.isServiceRunning(c.startOrder[i]) {
 			continue
@@ -367,6 +372,20 @@ func (c *Conductor) Serve(ctx context.Context) error {
 		if err := c.stopService(ctx, serviceName); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			c.logger.Printf("failed to stop service %s: %s", serviceName, err.Error())
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	mux.HandleFunc("/shutdown/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		err := c.stop(ctx)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			c.logger.Printf("failed to shutdown: %s", err.Error())
 			return
 		}
 		w.WriteHeader(http.StatusOK)
