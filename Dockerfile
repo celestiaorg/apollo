@@ -4,8 +4,8 @@
 #
 # Separating the builder and runtime image allows the runtime image to be
 # considerably smaller because it doesn't need to have Golang installed.
-ARG BUILDER_IMAGE=docker.io/golang:1.22.1-alpine3.18
-ARG RUNTIME_IMAGE=docker.io/alpine:3.19.1
+ARG BUILDER_IMAGE=docker.io/golang:1.22.5-alpine3.20
+ARG RUNTIME_IMAGE=docker.io/alpine:3.20
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -20,15 +20,35 @@ ENV GO111MODULE=on
 RUN apk update && apk add --no-cache \
     gcc \
     git \
+    bash \
     # linux-headers are needed for Ledger support
     linux-headers \
     make \
     musl-dev
-COPY . /apollo
+
+RUN git clone https://github.com/celestiaorg/celestia-node.git
+
+WORKDIR celestia-node
+
+RUN make install-key
+RUN make build && make go-install
+
+COPY cmd /apollo/cmd
+COPY faucet /apollo/faucet
+COPY genesis /apollo/genesis
+COPY node /apollo/node
+COPY web /apollo/web
+COPY apollo.go /apollo
+COPY conductor.go /apollo
+COPY go.mod /apollo
+COPY go.sum /apollo
+COPY service.go /apollo
+
 WORKDIR /apollo
 RUN uname -a &&\
     CGO_ENABLED=${CGO_ENABLED} GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go install cmd/apollo.go
+
 
 FROM ${RUNTIME_IMAGE} AS runtime
 # Use UID 10,001 because UIDs below 10,000 are a security risk.
@@ -36,6 +56,12 @@ FROM ${RUNTIME_IMAGE} AS runtime
 ARG UID=10001
 ARG USER_NAME=apollo
 ENV APOLLO_HOME=/home/${USER_NAME}
+
+#RUN wget -O /tmp/celestia-node_Linux_x86_64.tar.gz https://github.com/celestiaorg/celestia-node/releases/download/v0.14.0/celestia-node_Linux_x86_64.tar.gz && \
+#    tar -xvf /tmp/celestia-node_Linux_x86_64.tar.gz -C /tmp && \
+#    mv /tmp/celestia /bin/celestia && \
+#    rm -rf /tmp/celestia-node_Linux_x86_64.tar.gz /tmp/celestia
+
 # hadolint ignore=DL3018
 RUN apk update && apk add --no-cache \
     bash \
@@ -48,11 +74,18 @@ RUN apk update && apk add --no-cache \
     -s /sbin/nologin \
     -u ${UID}
 
-COPY --from=builder /apollo/apollo /bin/apollo
+COPY --from=builder /go/bin/apollo /bin/apollo
+COPY --from=builder /go/bin/cel-key /bin/cel-key
+COPY --from=builder /go/bin/celestia /bin/celestia
+
+COPY scripts scripts
+
+RUN chmod +x scripts/fund_account.sh
+RUN chmod +x scripts/run.sh
 
 # Set the user
 USER ${USER_NAME}
 
 # Expose ports:
 EXPOSE 1317 9090 26657 1095 8080 26658
-ENTRYPOINT [ "/bin/bash", "apollo" ]
+ENTRYPOINT [ "/bin/sh", "-c", "scripts/run.sh" ]
