@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"flag"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -53,12 +54,24 @@ func Run(ctx context.Context) error {
 	}
 	dir := filepath.Join(homeDir, ApolloDir)
 
+	// Define command line flag for a single address
+	address := flag.String("address", getEnv("ADDRESS", "0.0.0.0"), "Listen address for RPC, API, and GRPC-Web")
+
+	flag.Parse()
+
 	consensusCfg := testnode.DefaultConfig().
 		WithTendermintConfig(app.DefaultConsensusConfig()).
 		WithAppConfig(app.DefaultAppConfig())
 
+	consensusCfg.TmConfig.RPC.ListenAddress = "tcp://" + *address + ":26657"
+	consensusCfg.AppConfig.API.Address = "tcp://" + *address + ":1317"
+	consensusCfg.AppConfig.GRPCWeb.Address = *address + ":9091"
+	consensusCfg.AppConfig.GRPC.Address = *address + ":9090"
+
 	lightCfg := nodebuilder.DefaultConfig(node.Light)
 	lightCfg.RPC.SkipAuth = true
+	lightCfg.RPC.Address = *address
+	lightCfg.RPC.Port = "26658"
 
 	return apollo.Run(ctx, dir, genesis.NewDefaultGenesis(),
 		consensus.New(consensusCfg),
@@ -66,4 +79,12 @@ func Run(ctx context.Context) error {
 		bridge.New(nodebuilder.DefaultConfig(node.Bridge)),
 		light.New(lightCfg),
 	)
+}
+
+// Helper function to get environment variable or fallback to a default value
+func getEnv(key, fallback string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return fallback
 }
