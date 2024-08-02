@@ -26,6 +26,7 @@ RUN apk update && apk add --no-cache \
     make \
     musl-dev
 
+# Install celestia node & key management CLI for easier debugging and advanced commands
 RUN git clone https://github.com/celestiaorg/celestia-node.git
 
 WORKDIR celestia-node
@@ -33,6 +34,7 @@ WORKDIR celestia-node
 RUN make install-key
 RUN make build && make go-install
 
+# Copy all the files manually because otherwise modifying run scripts will trigger a full rebuild and that's annoying
 COPY cmd /apollo/cmd
 COPY faucet /apollo/faucet
 COPY genesis /apollo/genesis
@@ -47,7 +49,7 @@ COPY service.go /apollo
 WORKDIR /apollo
 RUN uname -a &&\
     CGO_ENABLED=${CGO_ENABLED} GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
-    go install cmd/apollo.go
+    go install cmd/main.go
 
 
 FROM ${RUNTIME_IMAGE} AS runtime
@@ -56,11 +58,6 @@ FROM ${RUNTIME_IMAGE} AS runtime
 ARG UID=10001
 ARG USER_NAME=apollo
 ENV APOLLO_HOME=/home/${USER_NAME}
-
-#RUN wget -O /tmp/celestia-node_Linux_x86_64.tar.gz https://github.com/celestiaorg/celestia-node/releases/download/v0.14.0/celestia-node_Linux_x86_64.tar.gz && \
-#    tar -xvf /tmp/celestia-node_Linux_x86_64.tar.gz -C /tmp && \
-#    mv /tmp/celestia /bin/celestia && \
-#    rm -rf /tmp/celestia-node_Linux_x86_64.tar.gz /tmp/celestia
 
 # hadolint ignore=DL3018
 RUN apk update && apk add --no-cache \
@@ -74,7 +71,7 @@ RUN apk update && apk add --no-cache \
     -s /sbin/nologin \
     -u ${UID}
 
-COPY --from=builder /go/bin/apollo /bin/apollo
+COPY --from=builder /go/bin/main /bin/apollo
 COPY --from=builder /go/bin/cel-key /bin/cel-key
 COPY --from=builder /go/bin/celestia /bin/celestia
 

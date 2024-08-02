@@ -2,4 +2,4 @@
 
 ./scripts/fund_account.sh &
 
-/bin/apollo
+/bin/apollo up
