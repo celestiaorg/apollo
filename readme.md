@@ -7,9 +7,18 @@ Apollo exists to simplify development of the modular stack. It's a one click dep
 To deploy **from source**, clone the repo and install the binary by running:
 
 ```bash
+<<<<<<< HEAD
 git clone https://github.com/celestiaorg/apollo.git && cd apollo
-go run cmd/apollo.go
+go install cmd/main.go
 ```
+
+From there, you can run the binary with the following command:
+
+```bash
+apollo up
+```
+
+This will start the control panel and all services.
 
 Go to `http://localhost:8080` to view the control panel. This will show which services are running along with the URLs
 
