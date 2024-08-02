@@ -1,8 +1,7 @@
-package main
+package cmd
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -14,6 +13,8 @@ import (
 	"github.com/celestiaorg/apollo/node/bridge"
 	"github.com/celestiaorg/apollo/node/consensus"
 	"github.com/celestiaorg/apollo/node/light"
+	"github.com/spf13/cobra"
+
 	"github.com/celestiaorg/celestia-app/app"
 	"github.com/celestiaorg/celestia-app/test/util/testnode"
 	"github.com/celestiaorg/celestia-node/nodebuilder"
@@ -22,21 +23,27 @@ import (
 
 const ApolloDir = ".apollo"
 
-func main() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+func NewUpCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "up",
+		Short: "Starts the Apollo network.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+			c := make(chan os.Signal, 1)
+			signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-	go func() {
-		<-c
-		cancel()
-	}()
+			go func() {
+				<-c
+				cancel()
+			}()
 
-	if err := Run(ctx); err != nil {
-		log.Fatal(err)
+			return Run(ctx)
+		},
 	}
+
+	return cmd
 }
 
 func Run(ctx context.Context) error {
