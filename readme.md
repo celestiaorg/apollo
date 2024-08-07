@@ -7,7 +7,6 @@ Apollo exists to simplify development of the modular stack. It's a one click dep
 To deploy **from source**, clone the repo and install the binary by running:
 
 ```bash
-<<<<<<< HEAD
 git clone https://github.com/celestiaorg/apollo.git && cd apollo
 go install cmd/main.go
 ```
